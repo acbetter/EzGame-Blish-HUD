@@ -312,6 +312,10 @@ namespace Blish_HUD {
                 { FramerateMethod.LockedTo30Fps, (true, TimeSpan.FromSeconds(1d / 30d), false) },
                 { FramerateMethod.LockedTo60Fps, (true, TimeSpan.FromSeconds(1d / 60d), false) },
                 { FramerateMethod.LockedTo90Fps, (true, TimeSpan.FromSeconds(1d / 90d), false) },
+                { FramerateMethod.LockedTo120Fps, (true, TimeSpan.FromSeconds(1d / 120d), false) },
+                { FramerateMethod.LockedTo144Fps, (true, TimeSpan.FromSeconds(1d / 144d), false) },
+                { FramerateMethod.LockedTo165Fps, (true, TimeSpan.FromSeconds(1d / 165d), false) },
+                { FramerateMethod.LockedTo240Fps, (true, TimeSpan.FromSeconds(1d / 240d), false) },
                 { FramerateMethod.Unlimited,     (false, TimeSpan.FromMilliseconds(1), true) }, // Unlimited with vsync (safe)
                 { FramerateMethod.TrueUnlimited, (false, TimeSpan.FromMilliseconds(1), false) } // Unlimited without vsync (unsafe)
             };

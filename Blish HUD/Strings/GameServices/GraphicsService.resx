@@ -149,4 +149,73 @@ NOTE: 'Automatic' will only update while logged in with a character</value>
   <data name="Setting_UIScaling_DisplayName" xml:space="preserve">
     <value>Interface Size</value>
   </data>
+  <data name="Enum_FramerateMethod_Custom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="Enum_FramerateMethod_SyncWithGame" xml:space="preserve">
+    <value>Sync With Game</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo30Fps" xml:space="preserve">
+    <value>Locked To 30 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo60Fps" xml:space="preserve">
+    <value>Locked To 60 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo90Fps" xml:space="preserve">
+    <value>Locked To 90 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo120Fps" xml:space="preserve">
+    <value>Locked To 120 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo144Fps" xml:space="preserve">
+    <value>Locked To 144 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo165Fps" xml:space="preserve">
+    <value>Locked To 165 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo240Fps" xml:space="preserve">
+    <value>Locked To 240 Fps</value>
+  </data>
+  <data name="Enum_FramerateMethod_Unlimited" xml:space="preserve">
+    <value>Match Monitor Refresh Rate</value>
+  </data>
+  <data name="Enum_FramerateMethod_TrueUnlimited" xml:space="preserve">
+    <value>Truly Unlimited</value>
+  </data>
+  <data name="Enum_DpiMethod_SyncWithGame" xml:space="preserve">
+    <value>Automatic - Sync With Game</value>
+  </data>
+  <data name="Enum_DpiMethod_UseGameDpi" xml:space="preserve">
+    <value>Enabled - Use Game DPI</value>
+  </data>
+  <data name="Enum_DpiMethod_NoScaling" xml:space="preserve">
+    <value>Disabled - Never Scale</value>
+  </data>
+  <data name="Enum_ManualUISize_SyncWithGame" xml:space="preserve">
+    <value>Automatic - Sync With Game</value>
+  </data>
+  <data name="Enum_ManualUISize_Small" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="Enum_ManualUISize_Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Enum_ManualUISize_Large" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="Enum_ManualUISize_Larger" xml:space="preserve">
+    <value>Larger</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_AlwaysShow" xml:space="preserve">
+    <value>Always Show (Default)</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_ShowPeaceful" xml:space="preserve">
+    <value>Show Only out of Combat</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_ShowInCombat" xml:space="preserve">
+    <value>Show Only in Combat</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_NeverShow" xml:space="preserve">
+    <value>Never Show</value>
+  </data>
 </root>

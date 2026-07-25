@@ -28,6 +28,7 @@ namespace Blish_HUD {
 
         private static readonly ConcurrentDictionary<string, BitmapFont>  _loadedBitmapFonts  = new ConcurrentDictionary<string, BitmapFont>();
         private static readonly ConcurrentDictionary<string, Texture2D>   _loadedTextures     = new ConcurrentDictionary<string, Texture2D>();
+        private static readonly ConcurrentDictionary<BitmapFont, ChineseFontRequest> _chineseFontRequests = new ConcurrentDictionary<BitmapFont, ChineseFontRequest>();
         
         #endregion
 
@@ -74,6 +75,20 @@ namespace Blish_HUD {
 
         private static readonly object             _chineseFontCharacterLock = new object();
         private static readonly Lazy<HashSet<char>> _chineseFontCharacters   = new Lazy<HashSet<char>>(LoadChineseFontCharacters);
+
+        private sealed class ChineseFontRequest {
+
+            public FontFace  Face  { get; }
+            public FontSize  Size  { get; }
+            public FontStyle Style { get; }
+
+            public ChineseFontRequest(FontFace face, FontSize size, FontStyle style) {
+                this.Face  = face;
+                this.Size  = size;
+                this.Style = style;
+            }
+
+        }
 
         public BitmapFont DefaultFont12 => GetFont(FontFace.Menomonia, FontSize.Size12, FontStyle.Regular);
 
@@ -533,6 +548,7 @@ namespace Blish_HUD {
 
                     loadedFont.LetterSpacing = 0;
                     _loadedBitmapFonts.TryAdd(fullFontName, loadedFont);
+                    _chineseFontRequests.TryAdd(loadedFont, new ChineseFontRequest(font, size, style));
 
                     return loadedFont;
                 } catch (Exception ex) {
@@ -542,6 +558,12 @@ namespace Blish_HUD {
             }
 
             return _loadedBitmapFonts[fullFontName];
+        }
+
+        internal BitmapFont RefreshChineseFont(BitmapFont font) {
+            return font != null && _chineseFontRequests.TryGetValue(font, out var request)
+                       ? GetFont(request.Face, request.Size, request.Style)
+                       : font;
         }
 
         public BitmapFont GetFont(FontFace font, FontSize size, FontStyle style) {

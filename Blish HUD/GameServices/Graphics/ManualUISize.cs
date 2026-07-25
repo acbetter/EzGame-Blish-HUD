@@ -2,19 +2,19 @@
 
 namespace Blish_HUD.Graphics {
     public enum ManualUISize : int {
-        [Description("Automatic - Sync With Game")]
+        [LocalizedGraphicsDescription("Enum_ManualUISize_SyncWithGame", "Automatic - Sync With Game")]
         SyncWithGame = 0,
 
-        [Description("Small")]
+        [LocalizedGraphicsDescription("Enum_ManualUISize_Small", "Small")]
         Small = 1,
 
-        [Description("Normal")]
+        [LocalizedGraphicsDescription("Enum_ManualUISize_Normal", "Normal")]
         Normal = 2,
 
-        [Description("Large")]
+        [LocalizedGraphicsDescription("Enum_ManualUISize_Large", "Large")]
         Large = 3,
 
-        [Description("Larger")]
+        [LocalizedGraphicsDescription("Enum_ManualUISize_Larger", "Larger")]
         Larger = 4
     }
 }

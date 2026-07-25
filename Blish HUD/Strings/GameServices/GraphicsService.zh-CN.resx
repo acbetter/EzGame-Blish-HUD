@@ -148,4 +148,73 @@
   <data name="Setting_UIScaling_DisplayName" xml:space="preserve">
     <value>界面大小</value>
   </data>
+  <data name="Enum_FramerateMethod_Custom" xml:space="preserve">
+    <value>自定义</value>
+  </data>
+  <data name="Enum_FramerateMethod_SyncWithGame" xml:space="preserve">
+    <value>与游戏同步</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo30Fps" xml:space="preserve">
+    <value>锁定为 30 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo60Fps" xml:space="preserve">
+    <value>锁定为 60 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo90Fps" xml:space="preserve">
+    <value>锁定为 90 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo120Fps" xml:space="preserve">
+    <value>锁定为 120 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo144Fps" xml:space="preserve">
+    <value>锁定为 144 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo165Fps" xml:space="preserve">
+    <value>锁定为 165 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_LockedTo240Fps" xml:space="preserve">
+    <value>锁定为 240 FPS</value>
+  </data>
+  <data name="Enum_FramerateMethod_Unlimited" xml:space="preserve">
+    <value>匹配显示器刷新率</value>
+  </data>
+  <data name="Enum_FramerateMethod_TrueUnlimited" xml:space="preserve">
+    <value>完全不限制</value>
+  </data>
+  <data name="Enum_DpiMethod_SyncWithGame" xml:space="preserve">
+    <value>自动：与游戏同步</value>
+  </data>
+  <data name="Enum_DpiMethod_UseGameDpi" xml:space="preserve">
+    <value>启用：使用游戏 DPI</value>
+  </data>
+  <data name="Enum_DpiMethod_NoScaling" xml:space="preserve">
+    <value>禁用：从不缩放</value>
+  </data>
+  <data name="Enum_ManualUISize_SyncWithGame" xml:space="preserve">
+    <value>自动：与游戏同步</value>
+  </data>
+  <data name="Enum_ManualUISize_Small" xml:space="preserve">
+    <value>较小</value>
+  </data>
+  <data name="Enum_ManualUISize_Normal" xml:space="preserve">
+    <value>正常</value>
+  </data>
+  <data name="Enum_ManualUISize_Large" xml:space="preserve">
+    <value>较大</value>
+  </data>
+  <data name="Enum_ManualUISize_Larger" xml:space="preserve">
+    <value>更大</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_AlwaysShow" xml:space="preserve">
+    <value>始终显示（默认）</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_ShowPeaceful" xml:space="preserve">
+    <value>仅在非战斗时显示</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_ShowInCombat" xml:space="preserve">
+    <value>仅在战斗时显示</value>
+  </data>
+  <data name="Enum_DynamicHUDMethod_NeverShow" xml:space="preserve">
+    <value>从不显示</value>
+  </data>
 </root>

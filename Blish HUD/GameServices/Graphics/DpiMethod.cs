@@ -2,13 +2,13 @@
 
 namespace Blish_HUD.Graphics {
     public enum DpiMethod : int {
-        [Description("Automatic - Sync With Game")]
+        [LocalizedGraphicsDescription("Enum_DpiMethod_SyncWithGame", "Automatic - Sync With Game")]
         SyncWithGame = 0,
 
-        [Description("Enabled - Use Game DPI")]
+        [LocalizedGraphicsDescription("Enum_DpiMethod_UseGameDpi", "Enabled - Use Game DPI")]
         UseGameDpi = 1,
 
-        [Description("Disabled - Never Scale")]
+        [LocalizedGraphicsDescription("Enum_DpiMethod_NoScaling", "Disabled - Never Scale")]
         NoScaling = 2
     }
 }

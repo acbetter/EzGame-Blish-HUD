@@ -10,6 +10,9 @@ namespace Blish_HUD.Controls {
         public string Text {
             get => _text;
             set {
+                GameService.Content.EnsureChineseFontCharacters(value);
+                _font = GameService.Content.RefreshChineseFont(_font);
+
                 if (SetProperty(ref _text, value, true) && (_autoSizeWidth || _autoSizeHeight)) {
                     RecalculateLayout();
                 }
