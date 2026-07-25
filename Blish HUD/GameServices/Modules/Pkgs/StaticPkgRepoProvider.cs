@@ -18,13 +18,15 @@ namespace Blish_HUD.Modules.Pkgs {
         private static readonly Dictionary<string, PkgManifest[]> _pkgCache = new Dictionary<string, PkgManifest[]>();
 
         private readonly List<Func<PkgManifest, bool>> _activeFilters = new List<Func<PkgManifest, bool>> { FilterShowOnlySupportedVersion };
+        private readonly Func<string, bool>             _packageLocationValidator;
 
         public virtual string PkgUrl { get; }
 
         protected StaticPkgRepoProvider() { /* NOOP */ }
 
-        public StaticPkgRepoProvider(string pkgUrl) {
-            this.PkgUrl = pkgUrl;
+        public StaticPkgRepoProvider(string pkgUrl, Func<string, bool> packageLocationValidator = null) {
+            this.PkgUrl                  = pkgUrl;
+            _packageLocationValidator    = packageLocationValidator;
         }
 
         public async Task<bool> Load(IProgress<string> progress = null) {
@@ -48,8 +50,17 @@ namespace Blish_HUD.Modules.Pkgs {
             progress?.Report(Strings.GameServices.ModulesService.PkgManagement_Progress_GettingModuleList);
             var manifests = await LoadPkgManifests(Flurl.Url.Combine(this.PkgUrl, preview ? PREVIEWASSET_PACKAGE_NAME : ASSET_PACKAGE_NAME));
 
+            var allowedManifests = _packageLocationValidator == null
+                                       ? manifests.PkgManifests
+                                       : manifests.PkgManifests.Where(manifest => _packageLocationValidator(manifest.Location)).ToArray();
+
+            int rejectedManifestCount = manifests.PkgManifests.Length - allowedManifests.Length;
+            if (rejectedManifestCount > 0) {
+                Logger.Warn($"Ignored {rejectedManifestCount} package manifest(s) from '{this.PkgUrl}' because their download locations are not allowed.");
+            }
+
             if (preview) {
-                foreach (var manifest in manifests.PkgManifests) {
+                foreach (var manifest in allowedManifests) {
                     manifest.IsPreview = true;
                 }
             }
@@ -59,7 +70,7 @@ namespace Blish_HUD.Modules.Pkgs {
                 return Array.Empty<PkgManifest>();
             }
 
-            return manifests.PkgManifests;
+            return allowedManifests;
         }
 
         protected async Task<(PkgManifest[] PkgManifests, Exception Exception)> LoadPkgManifests(string pkgUrl) {
@@ -71,7 +82,7 @@ namespace Blish_HUD.Modules.Pkgs {
                 using var jsonTextReader = new JsonTextReader(streamReader);
                 var serializer = new JsonSerializer();
 
-                return (serializer.Deserialize<PkgManifest[]>(jsonTextReader), null);
+                return (serializer.Deserialize<PkgManifest[]>(jsonTextReader) ?? Array.Empty<PkgManifest>(), null);
             } catch (Exception ex) {
                 Logger.Warn(ex, $"Failed to load modules from '{pkgUrl}'.");
                 return (Array.Empty<PkgManifest>(), ex);

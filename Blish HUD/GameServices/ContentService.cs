@@ -454,11 +454,52 @@ namespace Blish_HUD {
         private static string GetChineseFontFilePath(FontStyle style) {
             string fontFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts");
             string[] candidates = style == FontStyle.Bold
-                                      ? new[] { "Dengb.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "Deng.ttf", "simsunb.ttf" }
-                                      : new[] { "Deng.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "simsunb.ttf" };
+                                      ? new[] { "msyhbd.ttc", "msyh.ttc", "Dengb.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "Deng.ttf", "simsunb.ttf" }
+                                      : new[] { "msyhbd.ttc", "msyh.ttc", "Deng.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "simsunb.ttf" };
 
             return candidates.Select(candidate => Path.Combine(fontFolder, candidate))
                              .FirstOrDefault(File.Exists);
+        }
+
+        private static byte[] GetTtfBakerFontData(string fontPath, int collectionFaceIndex) {
+            byte[] fontData = File.ReadAllBytes(fontPath);
+
+            // SpriteFontPlus initializes fonts at byte offset 0 and therefore cannot
+            // consume a TrueType Collection directly. Expose the selected face at
+            // offset 0 while retaining its absolute table offsets.
+            if (fontData.Length < 16 ||
+                fontData[0] != (byte)'t' ||
+                fontData[1] != (byte)'t' ||
+                fontData[2] != (byte)'c' ||
+                fontData[3] != (byte)'f') {
+                return fontData;
+            }
+
+            int faceCount = ReadBigEndianInt32(fontData, 8);
+            if (collectionFaceIndex < 0 || collectionFaceIndex >= faceCount) {
+                throw new InvalidDataException($"TrueType Collection face {collectionFaceIndex} does not exist in '{fontPath}'.");
+            }
+
+            int faceOffset = ReadBigEndianInt32(fontData, 12 + collectionFaceIndex * 4);
+            if (faceOffset < 0 || faceOffset > fontData.Length - 12) {
+                throw new InvalidDataException($"Invalid TrueType Collection face offset in '{fontPath}'.");
+            }
+
+            int tableCount = (fontData[faceOffset + 4] << 8) | fontData[faceOffset + 5];
+            int directoryLength = checked(12 + tableCount * 16);
+            if (directoryLength > fontData.Length - faceOffset) {
+                throw new InvalidDataException($"Invalid TrueType Collection table directory in '{fontPath}'.");
+            }
+
+            Buffer.BlockCopy(fontData, faceOffset, fontData, 0, directoryLength);
+            return fontData;
+        }
+
+        private static int ReadBigEndianInt32(byte[] data, int offset) {
+            return (data[offset] << 24) |
+                   (data[offset + 1] << 16) |
+                   (data[offset + 2] << 8) |
+                   data[offset + 3];
         }
 
         private BitmapFont GetChineseFont(FontFace font, FontSize size, FontStyle style) {
@@ -475,11 +516,15 @@ namespace Blish_HUD {
                 try {
                     var ranges      = GetChineseUiFontRanges(out int characterCount);
                     int textureSize = GetChineseFontTextureSize(characterCount);
+                    int fontSize    = (int)size + 2;
 
                     using var ctx = GameService.Graphics.LendGraphicsDeviceContext();
 
-                    var loadedFont = TtfFontBaker.Bake(File.ReadAllBytes(fontPath),
-                                                       (int)size,
+                    // Microsoft YaHei UI is the second face in the Windows YaHei
+                    // collections and is tuned for small interface text.
+                    int collectionFaceIndex = Path.GetExtension(fontPath).Equals(".ttc", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                    var loadedFont = TtfFontBaker.Bake(GetTtfBakerFontData(fontPath, collectionFaceIndex),
+                                                       fontSize,
                                                        textureSize,
                                                        textureSize,
                                                        ranges)

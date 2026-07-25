@@ -33,7 +33,6 @@ namespace Blish_HUD {
         private const string MODULE_MANIFESTNAME = "manifest.json";
 
         private const string MODULE_COMPATIBILITYLIST = "compatibility.json";
-        private const string MODULE_SPOILEDURI        = "https://ezgame.cc/mirror/blish/spoiled.json";
 
         public event EventHandler<ValueEventArgs<ModuleManager>> ModuleRegistered;
         public event EventHandler<ValueEventArgs<ModuleManager>> ModuleUnregistered;
@@ -175,7 +174,7 @@ namespace Blish_HUD {
         private void LoadSpoiledList() {
             try {
                 // We block for this on purpose
-                _spoiledModuleIdentifiers = MODULE_SPOILEDURI.GetJsonAsync<string[]>().GetAwaiter().GetResult().ToHashSet();
+                _spoiledModuleIdentifiers = EzGameDistribution.SpoiledModulesUrl.GetJsonAsync<string[]>().GetAwaiter().GetResult().ToHashSet();
             } catch (Exception ex) {
                 Logger.Warn(ex, "Failed to load the spoiled modules list!");
             }

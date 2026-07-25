@@ -131,6 +131,15 @@ namespace Blish_HUD.Strings.GameServices.Modules {
                 return ResourceManager.GetString("PkgRepo_ProviderExtraOption_ReloadRepository", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Module Repo by EzGame.CC.
+        /// </summary>
+        internal static string PkgRepoEzGameSection {
+            get {
+                return ResourceManager.GetString("PkgRepoEzGameSection", resourceCulture);
+            }
+        }
         
         /// <summary>
         ///   Looks up a localized string similar to Module Repo.

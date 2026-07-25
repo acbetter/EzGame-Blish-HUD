@@ -17,26 +17,22 @@ namespace Blish_HUD.Modules {
 
         private static readonly Logger Logger = Logger.GetLogger<ModulePkgRepoHandler>();
 
-        // TODO: ModuleRepos should be made to handle multiple repos - not just our public one
-
         private const string REPO_SETTINGS = "ModuleRepoConfiguration";
 
-        private const string DEFAULT_REPOURL_SETTING      = "DefaultPkgsUrl";
         private const string ACKNOWLEDGED_UPDATES_SETTING = "AcknowledgedUpdates";
-
-        private const string DEFAULT_BHUDPKGS_REPOURL = "https://ezgame.cc/mirror/blish/";
 
         private const string TEXTUREREF_REPOMENU               = "156764-noarrow";
         private const string TEXTUREREF_REPOMENU_PENDINGUPDATE = "156764-update";
 
         private readonly List<IPkgRepoProvider> _repos = new List<IPkgRepoProvider>();
+        private readonly Dictionary<IPkgRepoProvider, PkgManifest[]> _pendingUpdatesByRepo = new Dictionary<IPkgRepoProvider, PkgManifest[]>();
 
-        private IGrouping<string, PkgManifest>[] _pendingUpdates = Array.Empty<IGrouping<string, PkgManifest>>();
+        private PkgManifest[] _pendingUpdates = Array.Empty<PkgManifest>();
 
         /// <summary>
         /// All pending module updates applicable to the current version of Blish HUD.
         /// </summary>
-        public IEnumerable<PkgManifest> PendingUpdates => _pendingUpdates.Select(grouping => grouping.Last());
+        public IEnumerable<PkgManifest> PendingUpdates => _pendingUpdates;
 
         /// <summary>
         /// Pending module updates which have not been acknowledged by the user.
@@ -48,41 +44,38 @@ namespace Blish_HUD.Modules {
         /// </summary>
         public IReadOnlyCollection<IPkgRepoProvider> PkgRepos => _repos.AsReadOnly();
 
-        private SettingEntry<string> _defaultRepoUrlSetting;
-        private SettingCollection    _acknowledgedUpdates;
+        private SettingCollection _acknowledgedUpdates;
 
-        private MenuItem         _repoMenuItem;
-        private IPkgRepoProvider _defaultRepoProvider;
+        private MenuItem _repoMenuItem;
+
+        private IPkgRepoProvider _repoProvider;
 
         internal ModulePkgRepoHandler(ModuleService service) : base(service) { /* NOOP */ }
         
         public override void Load() {
             DefineModuleRepoSettings(GameService.Settings.RegisterRootSettingCollection(REPO_SETTINGS));
-            _defaultRepoProvider = new StaticPkgRepoProvider(_defaultRepoUrlSetting.Value);
-            _repos.Add(_defaultRepoProvider);
+            _repoProvider = new StaticPkgRepoProvider(EzGameDistribution.PackageRepositoryUrl, EzGameDistribution.IsArtifactUrl);
+            _repos.Add(_repoProvider);
 
             RegisterRepoManagementInSettingsUi();
         }
 
         private void DefineModuleRepoSettings(SettingCollection settingCollection) {
-            _defaultRepoUrlSetting = settingCollection.DefineSetting(DEFAULT_REPOURL_SETTING, DEFAULT_BHUDPKGS_REPOURL);
-
             _acknowledgedUpdates = settingCollection.AddSubCollection(ACKNOWLEDGED_UPDATES_SETTING);
         }
 
         private void RegisterRepoManagementInSettingsUi() {
-            _repoMenuItem = new MenuItem(Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepoSection, GameService.Content.GetTexture(TEXTUREREF_REPOMENU));
+            _repoMenuItem = new MenuItem(Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepoEzGameSection, GameService.Content.GetTexture(TEXTUREREF_REPOMENU));
 
-            GameService.Overlay.SettingsTab.RegisterSettingMenu(_repoMenuItem, GetRepoView, int.MaxValue - 11);
+            GameService.Overlay.SettingsTab.RegisterSettingMenu(_repoMenuItem, menuItem => GetRepoView(_repoProvider), int.MaxValue - 11);
 
-            // TODO: Check all repos
-            _defaultRepoProvider.Load(null).ContinueWith(RepoResultsLoaded);
+            Task.WhenAll(_repos.Select(repo => repo.Load(null))).ContinueWith(RepoResultsLoaded);
         }
 
-        private View GetRepoView(MenuItem repoMenuItem) {
+        private View GetRepoView(IPkgRepoProvider repoProvider) {
             AcknowledgePendingModuleUpdates();
 
-            return new ModuleRepoView(_defaultRepoProvider);
+            return new ModuleRepoView(repoProvider);
         }
 
         #region Module Update Indicators
@@ -97,25 +90,32 @@ namespace Blish_HUD.Modules {
 
         private void RefreshUpdateIndicatorStates() {
             // TODO: Blish HUD icon should be handled in the Overlay service - this will likely have to wait for the old TabbedWindow to get replaced with the new one.
+            RefreshRepoMenuItem(_repoMenuItem, Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepoEzGameSection, _repoProvider);
 
             if (this.UnacknowledgedUpdates.Any(module => GameService.Overlay.ShowPreviews.Value || !module.IsPreview)) {
-                // settings menu item indicator
-                _repoMenuItem.Text             = $"{Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepoSection} ({Strings.GameServices.ModulesService.PkgManagement_Update.ToQuantity(_pendingUpdates.Length)})";
-                _repoMenuItem.Icon             = GameService.Content.GetTexture(TEXTUREREF_REPOMENU_PENDINGUPDATE);
-                _repoMenuItem.BasicTooltipText = $"{Strings.GameServices.ModulesService.PkgManagement_Update.Pluralize()}:\n\n{string.Join("\n", _pendingUpdates.Select(GetUpgradePathStringFromRepoPkgGroup))}";
-
                 // Main Blish HUD icon
                 GameService.Overlay.BlishMenuIcon.Icon      = GameService.Content.GetTexture("logo-update");
                 GameService.Overlay.BlishMenuIcon.HoverIcon = GameService.Content.GetTexture("logo-big-update");
             } else {
-                // settings menu item indicator
-                _repoMenuItem.Icon             = GameService.Content.GetTexture(TEXTUREREF_REPOMENU);
-                _repoMenuItem.Text             = Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepoSection;
-                _repoMenuItem.BasicTooltipText = null;
-
                 // Main Blish HUD icon
                 GameService.Overlay.BlishMenuIcon.Icon      = GameService.Content.GetTexture("logo");
                 GameService.Overlay.BlishMenuIcon.HoverIcon = GameService.Content.GetTexture("logo-big");
+            }
+        }
+
+        private void RefreshRepoMenuItem(MenuItem menuItem, string menuText, IPkgRepoProvider repoProvider) {
+            var pendingUpdates = _pendingUpdatesByRepo.TryGetValue(repoProvider, out var updates)
+                                     ? updates
+                                     : Array.Empty<PkgManifest>();
+
+            if (pendingUpdates.Any(module => GetUpdateIsNotAcknowledged(module) && (GameService.Overlay.ShowPreviews.Value || !module.IsPreview))) {
+                menuItem.Text             = $"{menuText} ({Strings.GameServices.ModulesService.PkgManagement_Update.ToQuantity(pendingUpdates.Length)})";
+                menuItem.Icon             = GameService.Content.GetTexture(TEXTUREREF_REPOMENU_PENDINGUPDATE);
+                menuItem.BasicTooltipText = $"{Strings.GameServices.ModulesService.PkgManagement_Update.Pluralize()}:\n\n{string.Join("\n", pendingUpdates.Select(GetUpgradePathStringFromRepoPkg))}";
+            } else {
+                menuItem.Icon             = GameService.Content.GetTexture(TEXTUREREF_REPOMENU);
+                menuItem.Text             = menuText;
+                menuItem.BasicTooltipText = null;
             }
         }
 
@@ -132,18 +132,33 @@ namespace Blish_HUD.Modules {
             RefreshUpdateIndicatorStates();
         }
 
-        private void RepoResultsLoaded(Task<bool> repoLoadedTask) {
-            if (repoLoadedTask.Result) {
-                _pendingUpdates = _defaultRepoProvider.GetPkgManifests(new Func<PkgManifest, bool>[] { StaticPkgRepoProvider.FilterShowOnlySupportedVersion, StaticPkgRepoProvider.FilterShowOnlyUpdates })
-                                                      .GroupBy(pkgManfiest => pkgManfiest.Namespace)
-                                                      .ToArray();
+        private void RepoResultsLoaded(Task<bool[]> repoLoadedTask) {
+            if (repoLoadedTask.Status != TaskStatus.RanToCompletion) return;
 
-                RefreshUpdateIndicatorStates();
+            var repoLoadResults = repoLoadedTask.Result;
+            for (int i = 0; i < _repos.Count; i++) {
+                if (!repoLoadResults[i]) continue;
+
+                _pendingUpdatesByRepo[_repos[i]] = GetLatestUpdates(_repos[i]);
             }
+
+            _pendingUpdates = _pendingUpdatesByRepo.Values
+                                                        .SelectMany(updates => updates)
+                                                        .GroupBy(pkgManifest => pkgManifest.Namespace, StringComparer.OrdinalIgnoreCase)
+                                                        .Select(group => group.OrderByDescending(pkgManifest => pkgManifest.Version).First())
+                                                        .ToArray();
+
+            RefreshUpdateIndicatorStates();
         }
 
-        private string GetUpgradePathStringFromRepoPkgGroup(IGrouping<string, PkgManifest> pkgGroup) {
-            var latest = pkgGroup.Last();
+        private static PkgManifest[] GetLatestUpdates(IPkgRepoProvider repoProvider) {
+            return repoProvider.GetPkgManifests(new Func<PkgManifest, bool>[] { StaticPkgRepoProvider.FilterShowOnlySupportedVersion, StaticPkgRepoProvider.FilterShowOnlyUpdates })
+                               .GroupBy(pkgManifest => pkgManifest.Namespace, StringComparer.OrdinalIgnoreCase)
+                               .Select(group => group.OrderByDescending(pkgManifest => pkgManifest.Version).First())
+                               .ToArray();
+        }
+
+        private string GetUpgradePathStringFromRepoPkg(PkgManifest latest) {
             var current = _service.Modules.FirstOrDefault(module => string.Equals(module.Manifest.Namespace, latest.Namespace, StringComparison.OrdinalIgnoreCase));
 
             if (current != null) {

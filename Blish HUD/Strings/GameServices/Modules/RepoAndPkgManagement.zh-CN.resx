@@ -99,6 +99,9 @@
   <data name="PkgRepoSection" xml:space="preserve">
     <value>模块仓库</value>
   </data>
+  <data name="PkgRepoEzGameSection" xml:space="preserve">
+    <value>模块仓库 by EzGame.CC</value>
+  </data>
   <data name="PkgRepo_ProviderExtraOption_ReloadRepository" xml:space="preserve">
     <value>强制重新加载仓库</value>
   </data>

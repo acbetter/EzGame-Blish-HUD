@@ -15,8 +15,6 @@ namespace Blish_HUD.Overlay {
 
         private const string UPDATE_SETTINGS = nameof(OverlayUpdateHandler) + "Configuration";
 
-        private const string DEFAULT_CORERELEASE_URL = "https://versions.blishhud.com/all.json?cv={0}";
-
         private CoreVersionManifest[] _availableUpdates = Array.Empty<CoreVersionManifest>();
 
         private SettingEntry<SemVer.Version> _lastAcknowledgedUpdate;
@@ -50,7 +48,7 @@ namespace Blish_HUD.Overlay {
 
         public override void Load() {
             DefineOverlayUpdateSettings(GameService.Settings.RegisterRootSettingCollection(UPDATE_SETTINGS));
-            BeginLoadReleases(string.Format(DEFAULT_CORERELEASE_URL, Program.OverlayVersion.BaseAndPrerelease()));
+            HandleLoadingReleases(Array.Empty<CoreVersionManifest>());
         }
 
         private void DefineOverlayUpdateSettings(SettingCollection settingCollection) {
@@ -77,11 +75,19 @@ namespace Blish_HUD.Overlay {
         }
 
         private void HandleLoadingReleases(CoreVersionManifest[] coreVersionManifests) {
-            _availableUpdates = coreVersionManifests;
+            coreVersionManifests ??= Array.Empty<CoreVersionManifest>();
+            _availableUpdates = coreVersionManifests.Where(manifest => EzGameDistribution.IsArtifactUrl(manifest.Url)).ToArray();
 
-            if (this.LatestRelease.Version > Program.OverlayVersion && this.LatestRelease.Version > this.LastAcknowledgedRelease) {
+            int rejectedManifestCount = coreVersionManifests.Length - _availableUpdates.Length;
+            if (rejectedManifestCount > 0) {
+                Logger.Warn("Ignored {0} core release manifest(s) because their download locations are not allowed.", rejectedManifestCount);
+            }
+
+            var latestRelease = this.LatestRelease;
+
+            if (latestRelease.Version != null && latestRelease.Version > Program.OverlayVersion && latestRelease.Version > this.LastAcknowledgedRelease) {
                 // The latest release is newer than the current version of Blish HUD and hasn't been notified about, before.
-                NotifyOfNewRelease(this.LatestRelease);
+                NotifyOfNewRelease(latestRelease);
             }
         }
 
@@ -109,22 +115,26 @@ namespace Blish_HUD.Overlay {
         }
 
         public (bool Available, CoreVersionManifest NewManifest) GetUpdateAvailable() {
-            if (this.LatestRelease.Version > Program.OverlayVersion) {
-                return (true, this.LatestRelease);
+            var latestRelease = this.LatestRelease;
+
+            if (latestRelease.Version != null && latestRelease.Version > Program.OverlayVersion) {
+                return (true, latestRelease);
             }
 
             return (false, default);
         }
 
         public IEnumerable<ContextMenuStripItem> GetContextMenuItems() {
-            if (this.LatestRelease.Version > Program.OverlayVersion) {
-                var updateToReleaseMenuItem = new ContextMenuStripItem(string.Format(this.LatestRelease.IsPrerelease
+            var latestRelease = this.LatestRelease;
+
+            if (latestRelease.Version != null && latestRelease.Version > Program.OverlayVersion) {
+                var updateToReleaseMenuItem = new ContextMenuStripItem(string.Format(latestRelease.IsPrerelease
                                                                                          ? Strings.GameServices.OverlayService.SelfUpdate_UpdateToPrereleaseMenuStripText
                                                                                          : Strings.GameServices.OverlayService.SelfUpdate_UpdateToReleaseMenuStripText,
-                                                                                     this.LatestRelease.Version));
+                                                                                     latestRelease.Version));
 
                 if (!(_activeUpdateWindow is { Visible: true })) {
-                    updateToReleaseMenuItem.Click += delegate { ShowReleaseSplash(this.LatestRelease, false); };
+                    updateToReleaseMenuItem.Click += delegate { ShowReleaseSplash(latestRelease, false); };
                 } else {
                     updateToReleaseMenuItem.Enabled = false;
                 }
@@ -140,7 +150,9 @@ namespace Blish_HUD.Overlay {
         }
 
         public void AcknowledgePendingReleases() {
-            this.LastAcknowledgedRelease = _availableUpdates.Select(manifest => manifest.Version).Max();
+            if (_availableUpdates.Length > 0) {
+                this.LastAcknowledgedRelease = _availableUpdates.Select(manifest => manifest.Version).Max();
+            }
         }
 
     }
