@@ -127,7 +127,7 @@ namespace Blish_HUD {
 
         private void DefineSettings(SettingCollection settings) {
             this.UserLocale    =       settings.DefineSetting("AppCulture",
-                                                              GetGw2LocaleFromCurrentUICulture(),
+                                                              Locale.Chinese,
                                                               () => Strings.GameServices.OverlayService.Setting_AppCulture_DisplayName,
                                                               () => Strings.GameServices.OverlayService.Setting_AppCulture_Description);
 
