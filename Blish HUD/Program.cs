@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
+using Blish_HUD.Licensing;
 
 namespace Blish_HUD {
 
@@ -71,6 +72,8 @@ namespace Blish_HUD {
             EnableLogging();
 
             Logger.Info("Launched from {launchDirectory} with args {launchOptions}.", Directory.GetCurrentDirectory(), string.Join(" ", args));
+
+            if (!ExpirationGate.AllowStartup()) return;
             
             string mutexName = string.IsNullOrEmpty(ApplicationSettings.Instance.MumbleMapName) ? $"{APP_GUID}" : $"{APP_GUID}:{ApplicationSettings.Instance.MumbleMapName}";
             using (Mutex singleInstanceMutex = new Mutex(true, mutexName, out bool ownsMutex)) {

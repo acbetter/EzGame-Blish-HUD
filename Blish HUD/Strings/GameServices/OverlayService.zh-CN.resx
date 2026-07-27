@@ -130,7 +130,8 @@
   </data>
   <data name="AboutLoveMessage" xml:space="preserve">
     <value>由 Blish HUD 团队及社区贡献者共同设计与构建
-由 EzGame.CC 汉化并提供镜像服务</value>
+由 EzGame.CC 汉化并提供镜像服务
+当前版本有效期至 2026 年 8 月 31 日</value>
   </data>
   <data name="Setting_ShowInTaskbar_Description" xml:space="preserve">
     <value>启用后，Blish HUD 运行时会显示在任务栏中。</value>
