@@ -31,19 +31,23 @@ namespace Blish_HUD.Modules.Pkgs {
 
         public async Task<bool> Load(IProgress<string> progress = null) {
             if (!_pkgCache.ContainsKey(this.PkgUrl)) {
-                progress ??= new Progress<string>(Logger.Info);
-
-                var repoResults = new List<PkgManifest>();
-
-                repoResults.AddRange(await LoadRepo(progress));
-                repoResults.AddRange(await LoadRepo(progress, true));
-
-                if (repoResults.Count > 0) {
-                    _pkgCache[this.PkgUrl] = repoResults.ToArray();
-                }
+                await Reload(progress);
             }
             
             return _pkgCache.ContainsKey(this.PkgUrl);
+        }
+
+        private async Task Reload(IProgress<string> progress = null) {
+            progress ??= new Progress<string>(Logger.Info);
+
+            var repoResults = new List<PkgManifest>();
+
+            repoResults.AddRange(await LoadRepo(progress));
+            repoResults.AddRange(await LoadRepo(progress, true));
+
+            if (repoResults.Count > 0) {
+                _pkgCache[this.PkgUrl] = repoResults.ToArray();
+            }
         }
 
         protected virtual async Task<PkgManifest[]> LoadRepo(IProgress<string> progress = null, bool preview = false) {
@@ -100,15 +104,15 @@ namespace Blish_HUD.Modules.Pkgs {
 
         }
 
-        public virtual IEnumerable<(string OptionName, Action<bool> OptionAction, bool IsToggle, bool IsChecked)> GetExtraOptions() {
+        public virtual IEnumerable<(string OptionName, Func<bool, Task> OptionAction, bool IsToggle, bool IsChecked)> GetExtraOptions() {
             // Actions
-            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_ReloadRepository, async (toggleState) => { await LoadRepo(); }, false, false);
+            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_ReloadRepository, async (toggleState) => await Reload(), false, false);
 
             // Filters
-            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterSupportedVersions, (toggleState) => ToggleFilter(FilterShowOnlySupportedVersion, toggleState), true, _activeFilters.Contains(FilterShowOnlySupportedVersion));
-            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterModulesWithUpdates, (toggleState) => ToggleFilter(FilterShowOnlyUpdates,         toggleState), true, _activeFilters.Contains(FilterShowOnlyUpdates));
-            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterInstalledModules, (toggleState) => ToggleFilter(FilterShowOnlyInstalled,         toggleState), true, _activeFilters.Contains(FilterShowOnlyInstalled));
-            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterNotInstalledModules, (toggleState) => ToggleFilter(FilterShowOnlyNotInstalled,   toggleState), true, _activeFilters.Contains(FilterShowOnlyNotInstalled));
+            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterSupportedVersions, (toggleState) => { ToggleFilter(FilterShowOnlySupportedVersion, toggleState); return Task.CompletedTask; }, true, _activeFilters.Contains(FilterShowOnlySupportedVersion));
+            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterModulesWithUpdates, (toggleState) => { ToggleFilter(FilterShowOnlyUpdates, toggleState); return Task.CompletedTask; }, true, _activeFilters.Contains(FilterShowOnlyUpdates));
+            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterInstalledModules, (toggleState) => { ToggleFilter(FilterShowOnlyInstalled, toggleState); return Task.CompletedTask; }, true, _activeFilters.Contains(FilterShowOnlyInstalled));
+            yield return (Strings.GameServices.Modules.RepoAndPkgManagement.PkgRepo_ProviderExtraOption_FilterNotInstalledModules, (toggleState) => { ToggleFilter(FilterShowOnlyNotInstalled, toggleState); return Task.CompletedTask; }, true, _activeFilters.Contains(FilterShowOnlyNotInstalled));
         }
 
         protected void ToggleFilter(Func<PkgManifest, bool> filterFunc, bool state) {

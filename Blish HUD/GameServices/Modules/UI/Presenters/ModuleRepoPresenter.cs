@@ -51,8 +51,8 @@ namespace Blish_HUD.Modules.UI.Presenters {
                 var menuItem = this.View.SettingsMenu.AddMenuItem(option.OptionName);
                 menuItem.CanCheck = option.IsToggle;
                 menuItem.Checked  = option.IsChecked;
-                menuItem.Click += delegate {
-                    option.OptionAction(menuItem.Checked);
+                menuItem.Click += async delegate {
+                    await option.OptionAction(menuItem.Checked);
 
                     UpdatePackagesView();
                 };
