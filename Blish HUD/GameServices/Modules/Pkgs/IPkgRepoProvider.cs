@@ -11,7 +11,7 @@ namespace Blish_HUD.Modules.Pkgs {
 
         IEnumerable<PkgManifest> GetPkgManifests(IEnumerable<Func<PkgManifest, bool>> filters);
 
-        IEnumerable<(string OptionName, Func<bool, Task> OptionAction, bool IsToggle, bool IsChecked)> GetExtraOptions();
+        IEnumerable<(string OptionName, Action<bool> OptionAction, bool IsToggle, bool IsChecked)> GetExtraOptions();
 
     }
 }
