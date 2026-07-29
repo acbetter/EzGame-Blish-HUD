@@ -129,6 +129,9 @@ namespace Blish_HUD.Controls {
                                                                HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left,
                                                                VerticalAlignment   verticalAlignment   = VerticalAlignment.Middle) {
 
+            GameService.Content.EnsureChineseFontCharacters(text, font);
+            font = GameService.Content.RefreshChineseFont(font);
+
             var checkCsr = new CachedStringRender(text, font, destinationRectangle, color, wrap, stroke, strokeDistance, horizontalAlignment, verticalAlignment);
 
             int csrHash = checkCsr.GetHashCode();

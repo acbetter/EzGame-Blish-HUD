@@ -171,7 +171,8 @@ namespace Blish_HUD {
 
             if (string.IsNullOrEmpty(text)) return;
 
-            GameService.Content.EnsureChineseFontCharacters(text);
+            GameService.Content.EnsureChineseFontCharacters(text, font);
+            font = GameService.Content.RefreshChineseFont(font);
 
             text = wrap ? DrawUtil.WrapText(font, text, destinationRectangle.Width) : text;
 

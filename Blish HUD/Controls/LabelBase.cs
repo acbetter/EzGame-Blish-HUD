@@ -66,7 +66,7 @@ namespace Blish_HUD.Controls {
         protected Size2 GetTextDimensions(string text = null) {
             text = text ?? _text;
 
-            GameService.Content.EnsureChineseFontCharacters(text);
+            RefreshChineseFont(text);
 
             if (!_autoSizeWidth && _wrapText) {
                 text = DrawUtil.WrapText(_font, text, LabelRegion.X > 0 ? LabelRegion.X : _size.X);
@@ -80,6 +80,10 @@ namespace Blish_HUD.Controls {
 
             if (_font == null || string.IsNullOrEmpty(text)) return;
 
+            if (RefreshChineseFont(text)) {
+                RecalculateLayout();
+            }
+
             if (_showShadow && !_strokeText) {
                 spriteBatch.DrawStringOnCtrl(this, text, _font, bounds.OffsetBy(1, 1), _shadowColor, _wrapText, _horizontalAlignment, _verticalAlignment);
             }
@@ -89,6 +93,19 @@ namespace Blish_HUD.Controls {
             } else {
                 spriteBatch.DrawStringOnCtrl(this, text, _font, bounds, _textColor, _wrapText, _strokeText, 1, _horizontalAlignment, _verticalAlignment);
             }
+        }
+
+        private bool RefreshChineseFont(string text) {
+            GameService.Content.EnsureChineseFontCharacters(text, _font);
+            BitmapFont refreshedFont = GameService.Content.RefreshChineseFont(_font);
+
+            if (ReferenceEquals(refreshedFont, _font)) {
+                return false;
+            }
+
+            _font = refreshedFont;
+            _labelRender = null;
+            return true;
         }
 
         protected override void Paint(SpriteBatch spriteBatch, Rectangle bounds) {

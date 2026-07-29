@@ -86,8 +86,6 @@ namespace Blish_HUD.Modules.UI.Presenters {
                                    .ThenBy(pkgs => pkgs.Last().Name)
                                    .ToList();
 
-            GameService.Content.EnsureChineseFontCharacters(string.Join("\n", pkgManifests.SelectMany(pkgs => pkgs.Select(GetPkgManifestText))));
-
             foreach (var pkgManifest in pkgManifests) {
                 var nPanel = new ViewContainer {
                     Size             = new Point(this.View.RepoFlowPanel.Width - 25, 64),
@@ -99,18 +97,6 @@ namespace Blish_HUD.Modules.UI.Presenters {
 
                 nPanel.Show(new ManagePkgView(pkgManifest));
             }
-        }
-
-        private static string GetPkgManifestText(PkgManifest pkgManifest) {
-            string contributors = pkgManifest.Contributors == null
-                                      ? string.Empty
-                                      : string.Join("\n", pkgManifest.Contributors.Select(contributor => contributor.Name));
-
-            string description = pkgManifest is PkgManifestV1 pkgv1
-                                     ? pkgv1.Description
-                                     : string.Empty;
-
-            return string.Join("\n", pkgManifest.Name, pkgManifest.Namespace, contributors, description);
         }
 
     }

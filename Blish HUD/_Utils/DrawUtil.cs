@@ -28,7 +28,8 @@ namespace Blish_HUD {
         }
 
         public static void DrawAlignedText(SpriteBatch sb, BitmapFont sf, string text, Rectangle bounds, Color clr, HorizontalAlignment ha = HorizontalAlignment.Left, VerticalAlignment va = VerticalAlignment.Middle) {
-            GameService.Content.EnsureChineseFontCharacters(text);
+            GameService.Content.EnsureChineseFontCharacters(text, sf);
+            sf = GameService.Content.RefreshChineseFont(sf);
 
             Vector2 textSize = sf.MeasureString(text);
 
@@ -69,7 +70,8 @@ namespace Blish_HUD {
         public static string WrapText(BitmapFont spriteFont, string text, float maxLineWidth) {
             if (string.IsNullOrEmpty(text)) return "";
 
-            GameService.Content.EnsureChineseFontCharacters(text);
+            GameService.Content.EnsureChineseFontCharacters(text, spriteFont);
+            spriteFont = GameService.Content.RefreshChineseFont(spriteFont);
 
             return string.Join("\n", text.Split('\n').Select(s => WrapTextSegment(spriteFont, s, maxLineWidth)));
         }
