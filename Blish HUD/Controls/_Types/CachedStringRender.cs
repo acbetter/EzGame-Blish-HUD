@@ -19,6 +19,8 @@ namespace Blish_HUD.Controls {
 
         public BitmapFont Font { get; }
 
+        public int FontGeneration { get; }
+
         public Rectangle DestinationRectangle { get; }
 
         public Color Color { get; }
@@ -45,6 +47,7 @@ namespace Blish_HUD.Controls {
 
             this.Text                 = text;
             this.Font                 = font;
+            this.FontGeneration       = font is PagedBitmapFont pagedFont ? pagedFont.Generation : 0;
             this.DestinationRectangle = new Rectangle(Point.Zero, destinationRectangle.Size);
             this.Color                = color;
             this.Wrap                 = wrap;
@@ -96,6 +99,7 @@ namespace Blish_HUD.Controls {
             unchecked {
                 int hashCode = (this.Text != null ? this.Text.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (this.Font != null ? this.Font.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ this.FontGeneration;
                 hashCode = (hashCode * 397) ^ this.DestinationRectangle.GetHashCode();
                 hashCode = (hashCode * 397) ^ this.Color.GetHashCode();
                 hashCode = (hashCode * 397) ^ this.Wrap.GetHashCode();
@@ -108,7 +112,7 @@ namespace Blish_HUD.Controls {
         }
 
         protected bool Equals(CachedStringRender other) {
-            return string.Equals(this.Text, other.Text) && Equals(this.Font, other.Font) && this.DestinationRectangle.Equals(other.DestinationRectangle) && this.Color.Equals(other.Color) && this.Wrap == other.Wrap && this.Stroke == other.Stroke && this.StrokeDistance == other.StrokeDistance && this.HorizontalAlignment == other.HorizontalAlignment && this.VerticalAlignment == other.VerticalAlignment;
+            return string.Equals(this.Text, other.Text) && Equals(this.Font, other.Font) && this.FontGeneration == other.FontGeneration && this.DestinationRectangle.Equals(other.DestinationRectangle) && this.Color.Equals(other.Color) && this.Wrap == other.Wrap && this.Stroke == other.Stroke && this.StrokeDistance == other.StrokeDistance && this.HorizontalAlignment == other.HorizontalAlignment && this.VerticalAlignment == other.VerticalAlignment;
         }
 
         public override bool Equals(object obj) {

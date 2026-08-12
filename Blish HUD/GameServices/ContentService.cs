@@ -68,14 +68,12 @@ namespace Blish_HUD {
 
         private IDataReader _audioDataReader;
 
-        private const int  CJK_PAGE_TEXTURE_SIZE       = 1024;
-        private const int  CJK_PAGE_CHARACTER_LIMIT    = 128;
-        private const int  CJK_MAX_PAGES_PER_FONT      = 8;
-        private const long CJK_GLOBAL_TEXTURE_BUDGET   = 96L * 1024 * 1024;
-        private const long CJK_PAGE_TEXTURE_BYTES      = CJK_PAGE_TEXTURE_SIZE * CJK_PAGE_TEXTURE_SIZE * 4L;
-        private const int  CJK_EVICTION_GRACE_SECONDS  = 10;
+        private const int  CJK_PAGE_CHARACTER_LIMIT    = 512;
+        private const long CJK_GLOBAL_TEXTURE_BUDGET   = 128L * 1024 * 1024;
 
         private const string CHINESE_FONT_CACHE_FILE = "zh-cn-glyph-cache-v2.txt";
+        private const string BUNDLED_UI_FONT_MEDIUM_FILE = "NotoSansSC-Medium.ttf";
+        private const string BUNDLED_UI_FONT_BOLD_FILE   = "NotoSansSC-Bold.ttf";
 
         private static readonly object             _chineseFontCharacterLock = new object();
         private static readonly Lazy<HashSet<char>> _chineseFontCharacters   = new Lazy<HashSet<char>>(LoadChineseFontCharacters);
@@ -418,55 +416,33 @@ namespace Blish_HUD {
             return CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string GetChineseFontFilePath(FontStyle style) {
-            string fontFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts");
-            string[] candidates = style == FontStyle.Bold
-                                      ? new[] { "msyhbd.ttc", "msyh.ttc", "Dengb.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "Deng.ttf", "simsunb.ttf" }
-                                      : new[] { "msyhbd.ttc", "msyh.ttc", "Deng.ttf", "simhei.ttf", "NotoSansSC-VF.ttf", "simsunb.ttf" };
+        private static string GetBundledUiFontPath(FontStyle style) {
+            string fileName = style == FontStyle.Bold
+                                  ? BUNDLED_UI_FONT_BOLD_FILE
+                                  : BUNDLED_UI_FONT_MEDIUM_FILE;
+            string fontPath = Path.Combine(AppContext.BaseDirectory, "Content", "common", fileName);
 
-            return candidates.Select(candidate => Path.Combine(fontFolder, candidate))
-                             .FirstOrDefault(File.Exists);
+            return File.Exists(fontPath) ? fontPath : null;
         }
 
-        private static byte[] GetTtfBakerFontData(string fontPath, int collectionFaceIndex) {
-            byte[] fontData = File.ReadAllBytes(fontPath);
+        private static int GetUiFontBakeSize(FontSize size) {
+            int requestedSize = (int)size;
 
-            // SpriteFontPlus initializes fonts at byte offset 0 and therefore cannot
-            // consume a TrueType Collection directly. Expose the selected face at
-            // offset 0 while retaining its absolute table offsets.
-            if (fontData.Length < 16 ||
-                fontData[0] != (byte)'t' ||
-                fontData[1] != (byte)'t' ||
-                fontData[2] != (byte)'c' ||
-                fontData[3] != (byte)'f') {
-                return fontData;
-            }
+            if (requestedSize <= 12) return requestedSize + 2;
+            if (requestedSize <= 18) return requestedSize + 1;
 
-            int faceCount = ReadBigEndianInt32(fontData, 8);
-            if (collectionFaceIndex < 0 || collectionFaceIndex >= faceCount) {
-                throw new InvalidDataException($"TrueType Collection face {collectionFaceIndex} does not exist in '{fontPath}'.");
-            }
-
-            int faceOffset = ReadBigEndianInt32(fontData, 12 + collectionFaceIndex * 4);
-            if (faceOffset < 0 || faceOffset > fontData.Length - 12) {
-                throw new InvalidDataException($"Invalid TrueType Collection face offset in '{fontPath}'.");
-            }
-
-            int tableCount = (fontData[faceOffset + 4] << 8) | fontData[faceOffset + 5];
-            int directoryLength = checked(12 + tableCount * 16);
-            if (directoryLength > fontData.Length - faceOffset) {
-                throw new InvalidDataException($"Invalid TrueType Collection table directory in '{fontPath}'.");
-            }
-
-            Buffer.BlockCopy(fontData, faceOffset, fontData, 0, directoryLength);
-            return fontData;
+            return requestedSize;
         }
 
-        private static int ReadBigEndianInt32(byte[] data, int offset) {
-            return (data[offset] << 24) |
-                   (data[offset + 1] << 16) |
-                   (data[offset + 2] << 8) |
-                   data[offset + 3];
+        private static int GetUiFontPageTextureSize(int bakeSize) {
+            if (bakeSize <= 20) return 640;
+            if (bakeSize <= 24) return 768;
+
+            return 1024;
+        }
+
+        private static FontStyle GetUiFontWeightStyle(FontStyle style) {
+            return style == FontStyle.Bold ? FontStyle.Bold : FontStyle.Regular;
         }
 
         private sealed class ChineseFontAtlas : IDisposable {
@@ -476,26 +452,30 @@ namespace Blish_HUD {
                 public IReadOnlyList<BitmapFontRegion> Regions { get; }
                 public HashSet<char> Characters { get; }
                 public bool IncludesBaseCharacters { get; }
-                public long LastUsedTicks { get; set; }
+                public long TextureBytes { get; }
 
                 public Page(Texture2D texture, IReadOnlyList<BitmapFontRegion> regions, HashSet<char> characters, bool includesBaseCharacters) {
                     this.Texture                = texture;
                     this.Regions                = regions;
                     this.Characters             = characters;
                     this.IncludesBaseCharacters = includesBaseCharacters;
-                    this.LastUsedTicks          = DateTime.UtcNow.Ticks;
+                    this.TextureBytes           = texture.Width * texture.Height * 4L;
                 }
             }
 
             private sealed class BakedPage {
                 public TtfFontBakerResult Result { get; }
                 public Color[] Pixels { get; }
+                public int TextureWidth { get; }
+                public int TextureHeight { get; }
                 public HashSet<char> RequestedCharacters { get; }
                 public bool IncludesBaseCharacters { get; }
 
-                public BakedPage(TtfFontBakerResult result, Color[] pixels, HashSet<char> requestedCharacters, bool includesBaseCharacters) {
+                public BakedPage(TtfFontBakerResult result, Color[] pixels, int textureWidth, int textureHeight, HashSet<char> requestedCharacters, bool includesBaseCharacters) {
                     this.Result                 = result;
                     this.Pixels                 = pixels;
+                    this.TextureWidth           = textureWidth;
+                    this.TextureHeight          = textureHeight;
                     this.RequestedCharacters    = requestedCharacters;
                     this.IncludesBaseCharacters = includesBaseCharacters;
                 }
@@ -505,12 +485,14 @@ namespace Blish_HUD {
             private readonly string          _key;
             private readonly string          _fontPath;
             private readonly int             _fontSize;
+            private readonly int             _textureSize;
             private readonly FontFace        _face;
             private readonly FontSize        _size;
             private readonly FontStyle       _style;
             private readonly List<Page>      _pages = new List<Page>();
             private readonly HashSet<char>   _pendingCharacters = new HashSet<char>();
             private readonly HashSet<char>   _bakedCharacters = new HashSet<char>();
+            private readonly HashSet<char>   _rejectedCharacters = new HashSet<char>();
 
             private byte[]       _fontData;
             private BitmapFont   _fallbackFont;
@@ -519,21 +501,8 @@ namespace Blish_HUD {
             private bool         _buildInProgress;
             private bool         _disposed;
             private int          _generation;
-            private long         _lastUsedTicks = DateTime.UtcNow.Ticks;
-
-            public long LastUsedTicks => Interlocked.Read(ref _lastUsedTicks);
-
-            public bool CanEvict {
-                get {
-                    lock (_sync) {
-                        return !_buildInProgress && _pages.Count > 0;
-                    }
-                }
-            }
-
             public BitmapFont CurrentFont {
                 get {
-                    Touch();
                     lock (_sync) {
                         return _currentFont ?? _fallbackFont;
                     }
@@ -543,7 +512,8 @@ namespace Blish_HUD {
             public ChineseFontAtlas(string key, string fontPath, FontFace face, FontSize size, FontStyle style) {
                 _key      = key;
                 _fontPath = fontPath;
-                _fontSize = (int)size + 2;
+                _fontSize = GetUiFontBakeSize(size);
+                _textureSize = GetUiFontPageTextureSize(_fontSize);
                 _face     = face;
                 _size     = size;
                 _style    = style;
@@ -557,79 +527,58 @@ namespace Blish_HUD {
                 }
             }
 
-            public void Touch() {
-                Interlocked.Exchange(ref _lastUsedTicks, DateTime.UtcNow.Ticks);
-            }
-
             public void RequestCharacters(IEnumerable<char> characters) {
                 if (characters == null) return;
 
                 lock (_sync) {
                     if (_disposed) return;
 
-                    long now = DateTime.UtcNow.Ticks;
-
                     foreach (char character in characters.Where(IsChineseFontCharacter).Distinct()) {
                         var page = _pages.FirstOrDefault(candidate => candidate.Characters.Contains(character));
 
-                        if (page != null) {
-                            page.LastUsedTicks = now;
-                        } else if (!_bakedCharacters.Contains(character)) {
+                        if (page == null &&
+                            !_bakedCharacters.Contains(character) &&
+                            !_rejectedCharacters.Contains(character)) {
                             _pendingCharacters.Add(character);
                         }
                     }
                 }
 
-                Touch();
                 StartBuildIfNeeded();
             }
 
-            public long EvictAllPages() {
-                List<Texture2D> textures;
-                long freedBytes;
-
-                lock (_sync) {
-                    if (_buildInProgress || _pages.Count == 0) return 0;
-
-                    textures = _pages.Select(page => page.Texture).ToList();
-                    freedBytes = textures.Count * CJK_PAGE_TEXTURE_BYTES;
-
-                    _pages.Clear();
-                    _bakedCharacters.Clear();
-                    _baseCharactersBaked = false;
-                    _currentFont = _fallbackFont;
-                    _generation++;
-                }
-
-                DisposeTexturesAfterGracePeriod(textures);
-                Logger.Debug("Evicted {pageCount} Chinese font pages for inactive atlas {fontName}.", textures.Count, _key);
-                return freedBytes;
-            }
-
             private void StartBuildIfNeeded() {
-                HashSet<char> requestedCharacters;
-                bool includeBaseCharacters;
-
                 lock (_sync) {
                     if (_disposed || _buildInProgress || (_baseCharactersBaked && _pendingCharacters.Count == 0)) {
                         return;
                     }
 
-                    includeBaseCharacters = !_baseCharactersBaked;
-                    requestedCharacters = new HashSet<char>(_pendingCharacters.Take(CJK_PAGE_CHARACTER_LIMIT));
-                    _pendingCharacters.ExceptWith(requestedCharacters);
                     _buildInProgress = true;
                 }
 
                 Task.Run(async () => {
                     // Coalesce labels created in the same UI update into one page.
-                    await Task.Delay(50).ConfigureAwait(false);
+                    await Task.Delay(150).ConfigureAwait(false);
+
+                    HashSet<char> requestedCharacters;
+                    bool includeBaseCharacters;
+
+                    lock (_sync) {
+                        if (_disposed) {
+                            _buildInProgress = false;
+                            return;
+                        }
+
+                        includeBaseCharacters = !_baseCharactersBaked;
+                        requestedCharacters = new HashSet<char>(_pendingCharacters.Take(CJK_PAGE_CHARACTER_LIMIT));
+                        _pendingCharacters.ExceptWith(requestedCharacters);
+                    }
+
                     await _chineseFontBakeLock.WaitAsync().ConfigureAwait(false);
 
                     try {
                         if (_fontData == null) {
-                            int collectionFaceIndex = Path.GetExtension(_fontPath).Equals(".ttc", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                            _fontData = GetTtfBakerFontData(_fontPath, collectionFaceIndex);
+                            _fontData = File.ReadAllBytes(_fontPath);
                         }
 
                         var ranges = new List<CharacterRange>();
@@ -642,17 +591,21 @@ namespace Blish_HUD {
 
                         var result = TtfFontBaker.Bake(_fontData,
                                                        _fontSize,
-                                                       CJK_PAGE_TEXTURE_SIZE,
-                                                       CJK_PAGE_TEXTURE_SIZE,
+                                                       _textureSize,
+                                                       _textureSize,
                                                        ranges);
-                        var pixels = new Color[result.Width * result.Height];
+                        int usedWidth = Math.Max(1, result.Glyphs.Values.Max(glyph => glyph.X + glyph.Width));
+                        int usedHeight = Math.Max(1, result.Glyphs.Values.Max(glyph => glyph.Y + glyph.Height));
+                        var pixels = new Color[usedWidth * usedHeight];
 
-                        for (int i = 0; i < result.Pixels.Length; i++) {
-                            byte value = result.Pixels[i];
-                            pixels[i] = new Color(value, value, value, value);
+                        for (int y = 0; y < usedHeight; y++) {
+                            for (int x = 0; x < usedWidth; x++) {
+                                byte value = result.Pixels[y * result.Width + x];
+                                pixels[y * usedWidth + x] = new Color(value, value, value, value);
+                            }
                         }
 
-                        var bakedPage = new BakedPage(result, pixels, requestedCharacters, includeBaseCharacters);
+                        var bakedPage = new BakedPage(result, pixels, usedWidth, usedHeight, requestedCharacters, includeBaseCharacters);
                         GameService.Graphics.QueueMainThreadRender(graphicsDevice => CompleteBuild(graphicsDevice, bakedPage));
                     } catch (Exception ex) {
                         FailBuild(requestedCharacters, ex);
@@ -670,17 +623,21 @@ namespace Blish_HUD {
                     }
                 }
 
-                if (!TryReserveChineseFontPage(this)) {
+                long pageTextureBytes = bakedPage.TextureWidth * bakedPage.TextureHeight * 4L;
+
+                if (!TryReserveChineseFontPage(this, pageTextureBytes)) {
                     lock (_sync) {
-                        _pendingCharacters.UnionWith(bakedPage.RequestedCharacters);
+                        _rejectedCharacters.UnionWith(bakedPage.RequestedCharacters);
                         _buildInProgress = false;
                     }
 
-                    Logger.Warn("Chinese font texture budget reached. Delaying page for {fontName}.", _key);
+                    Logger.Warn("Chinese font texture budget reached. Rejected {characterCount} new characters for {fontName}.",
+                                bakedPage.RequestedCharacters.Count,
+                                _key);
                     return;
                 }
 
-                var texture = new Texture2D(graphicsDevice, bakedPage.Result.Width, bakedPage.Result.Height);
+                var texture = new Texture2D(graphicsDevice, bakedPage.TextureWidth, bakedPage.TextureHeight);
                 texture.SetData(bakedPage.Pixels);
 
                 var regions = bakedPage.Result.Glyphs.OrderBy(pair => pair.Key)
@@ -696,39 +653,28 @@ namespace Blish_HUD {
                                        .ToList();
                 var pageCharacters = new HashSet<char>(bakedPage.Result.Glyphs.Keys.Select(key => (char)key));
                 var page = new Page(texture, regions, pageCharacters, bakedPage.IncludesBaseCharacters);
-                List<Texture2D> evictedTextures = null;
 
                 lock (_sync) {
-                    if (_pages.Count >= CJK_MAX_PAGES_PER_FONT) {
-                        Page evictedPage = _pages.Where(candidate => !candidate.IncludesBaseCharacters)
-                                                 .OrderBy(candidate => candidate.LastUsedTicks)
-                                                 .FirstOrDefault()
-                                           ?? _pages.OrderBy(candidate => candidate.LastUsedTicks).First();
-                        _pages.Remove(evictedPage);
-                        _bakedCharacters.ExceptWith(evictedPage.Characters);
-                        _baseCharactersBaked &= !evictedPage.IncludesBaseCharacters;
-                        evictedTextures = new List<Texture2D> { evictedPage.Texture };
-                        Interlocked.Add(ref _chineseFontTextureBytes, -CJK_PAGE_TEXTURE_BYTES);
-                    }
-
                     _pages.Add(page);
                     _bakedCharacters.UnionWith(page.Characters);
+                    // Requests received while this page was baking may contain the
+                    // same characters. Do not bake them again on the next page.
+                    _pendingCharacters.ExceptWith(page.Characters);
                     _baseCharactersBaked |= bakedPage.IncludesBaseCharacters;
                     _buildInProgress = false;
                     _generation++;
 
-                    var allRegions = _pages.SelectMany(candidate => candidate.Regions).ToList();
                     int lineHeight = (int)Math.Ceiling(bakedPage.Result.FontFontPixelHeight);
-                    var font = new PagedBitmapFont($"{_key}-g{_generation}", allRegions, lineHeight, _generation) {
-                        LetterSpacing = 0
-                    };
+                    if (_currentFont is PagedBitmapFont font) {
+                        font.AppendRegions(regions, _generation);
+                    } else {
+                        font = new PagedBitmapFont(_key, regions, lineHeight, _generation) {
+                            LetterSpacing = 0
+                        };
 
-                    _currentFont = font;
-                    _chineseFontRequests.TryAdd(font, new ChineseFontRequest(_face, _size, _style, _key));
-                }
-
-                if (evictedTextures != null) {
-                    DisposeTexturesAfterGracePeriod(evictedTextures);
+                        _currentFont = font;
+                        _chineseFontRequests.TryAdd(font, new ChineseFontRequest(_face, _size, _style, _key));
+                    }
                 }
 
                 Logger.Debug("Built Chinese font page for {fontName}: {glyphCount} glyphs, {pageCount} resident pages, {textureMegabytes} MB total.",
@@ -759,7 +705,7 @@ namespace Blish_HUD {
                     _pages.Clear();
                 }
 
-                Interlocked.Add(ref _chineseFontTextureBytes, -textures.Count * CJK_PAGE_TEXTURE_BYTES);
+                Interlocked.Add(ref _chineseFontTextureBytes, -textures.Sum(texture => texture.Width * texture.Height * 4L));
 
                 foreach (var texture in textures) {
                     texture.Dispose();
@@ -768,44 +714,24 @@ namespace Blish_HUD {
 
         }
 
-        private static void DisposeTexturesAfterGracePeriod(IEnumerable<Texture2D> textures) {
-            var textureList = textures.ToList();
+        private static bool TryReserveChineseFontPage(ChineseFontAtlas requester, long pageTextureBytes) {
+            while (true) {
+                long currentBytes = Interlocked.Read(ref _chineseFontTextureBytes);
+                long reservedBytes = currentBytes + pageTextureBytes;
 
-            Task.Run(async () => {
-                await Task.Delay(TimeSpan.FromSeconds(CJK_EVICTION_GRACE_SECONDS)).ConfigureAwait(false);
-                GameService.Graphics.QueueMainThreadRender(_ => {
-                    foreach (var texture in textureList) {
-                        texture.Dispose();
-                    }
-                });
-            });
-        }
-
-        private static bool TryReserveChineseFontPage(ChineseFontAtlas requester) {
-            while (Interlocked.Read(ref _chineseFontTextureBytes) + CJK_PAGE_TEXTURE_BYTES > CJK_GLOBAL_TEXTURE_BUDGET) {
-                var evictionCandidate = _chineseFontAtlases.Values
-                                                          .Where(atlas => atlas != requester && atlas.CanEvict)
-                                                          .OrderBy(atlas => atlas.LastUsedTicks)
-                                                          .FirstOrDefault();
-
-                if (evictionCandidate == null) {
-                    return false;
+                if (reservedBytes > CJK_GLOBAL_TEXTURE_BUDGET) return false;
+                if (Interlocked.CompareExchange(ref _chineseFontTextureBytes, reservedBytes, currentBytes) == currentBytes) {
+                    return true;
                 }
-
-                long freedBytes = evictionCandidate.EvictAllPages();
-                if (freedBytes <= 0) return false;
-                Interlocked.Add(ref _chineseFontTextureBytes, -freedBytes);
             }
-
-            Interlocked.Add(ref _chineseFontTextureBytes, CJK_PAGE_TEXTURE_BYTES);
-            return true;
         }
 
         private BitmapFont GetChineseFont(FontFace font, FontSize size, FontStyle style) {
-            string fontPath = GetChineseFontFilePath(style);
+            style = GetUiFontWeightStyle(style);
+            string fontPath = GetBundledUiFontPath(style);
 
             if (fontPath == null) {
-                Logger.Warn("Unable to find a Windows CJK font. Falling back to {fontFace}.", font);
+                Logger.Error("Bundled UI font for style {fontStyle} is missing. Falling back to {fontFace}.", style, font);
                 return null;
             }
 
@@ -855,7 +781,8 @@ namespace Blish_HUD {
         }
 
         private static void RegisterChineseFallback(FontFace font, FontSize size, FontStyle style, BitmapFont fallbackFont) {
-            string fontPath = GetChineseFontFilePath(style);
+            style = GetUiFontWeightStyle(style);
+            string fontPath = GetBundledUiFontPath(style);
             if (fontPath == null || fallbackFont == null) return;
 
             string atlasKey = $"zh-cn-{Path.GetFileNameWithoutExtension(fontPath).ToLowerInvariant()}-{((int)size).ToString()}-{style.ToString().ToLowerInvariant()}";

@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended;
 using MonoGame.Extended.BitmapFonts;
+using Blish_HUD.Content;
 
 namespace Blish_HUD.Controls {
     public abstract class LabelBase : Control {
@@ -20,6 +21,7 @@ namespace Blish_HUD.Controls {
         protected Color               _shadowColor         = Color.Black;
         protected bool                _autoSizeWidth       = false;
         protected bool                _autoSizeHeight      = false;
+        private int                   _fontGeneration     = -1;
 
         protected LabelBase() {
             _font = Content.DefaultFont14;
@@ -98,12 +100,14 @@ namespace Blish_HUD.Controls {
         private bool RefreshChineseFont(string text) {
             GameService.Content.EnsureChineseFontCharacters(text, _font);
             BitmapFont refreshedFont = GameService.Content.RefreshChineseFont(_font);
+            int refreshedGeneration = refreshedFont is PagedBitmapFont pagedFont ? pagedFont.Generation : 0;
 
-            if (ReferenceEquals(refreshedFont, _font)) {
+            if (ReferenceEquals(refreshedFont, _font) && refreshedGeneration == _fontGeneration) {
                 return false;
             }
 
             _font = refreshedFont;
+            _fontGeneration = refreshedGeneration;
             _labelRender = null;
             return true;
         }

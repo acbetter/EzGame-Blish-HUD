@@ -65,6 +65,15 @@
 #begin common/menomonia.ttf
 /copy:common/menomonia.ttf
 
+#begin common/NotoSansSC-Medium.ttf
+/copy:common/NotoSansSC-Medium.ttf
+
+#begin common/NotoSansSC-Bold.ttf
+/copy:common/NotoSansSC-Bold.ttf
+
+#begin common/NotoSansSC-LICENSE.txt
+/copy:common/NotoSansSC-LICENSE.txt
+
 #begin effects/alphamask.fx
 /importer:EffectImporter
 /processor:EffectProcessor
