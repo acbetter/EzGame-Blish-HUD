@@ -72,8 +72,7 @@ namespace Blish_HUD {
         private const long CJK_GLOBAL_TEXTURE_BUDGET   = 128L * 1024 * 1024;
 
         private const string CHINESE_FONT_CACHE_FILE = "zh-cn-glyph-cache-v2.txt";
-        private const string BUNDLED_UI_FONT_MEDIUM_FILE = "NotoSansSC-Medium.ttf";
-        private const string BUNDLED_UI_FONT_BOLD_FILE   = "NotoSansSC-Bold.ttf";
+        private const int MICROSOFT_YAHEI_UI_FACE_INDEX = 1;
 
         private static readonly object             _chineseFontCharacterLock = new object();
         private static readonly Lazy<HashSet<char>> _chineseFontCharacters   = new Lazy<HashSet<char>>(LoadChineseFontCharacters);
@@ -416,22 +415,53 @@ namespace Blish_HUD {
             return CultureInfo.CurrentUICulture.Name.StartsWith("zh", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string GetBundledUiFontPath(FontStyle style) {
-            string fileName = style == FontStyle.Bold
-                                  ? BUNDLED_UI_FONT_BOLD_FILE
-                                  : BUNDLED_UI_FONT_MEDIUM_FILE;
-            string fontPath = Path.Combine(AppContext.BaseDirectory, "Content", "common", fileName);
+        private static string GetUiFontPath(FontStyle style) {
+            string fontFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Fonts");
+            string fontPath = Path.Combine(fontFolder, "msyhbd.ttc");
 
             return File.Exists(fontPath) ? fontPath : null;
         }
 
         private static int GetUiFontBakeSize(FontSize size) {
-            int requestedSize = (int)size;
+            return (int)size + 2;
+        }
 
-            if (requestedSize <= 12) return requestedSize + 2;
-            if (requestedSize <= 18) return requestedSize + 1;
+        private static byte[] GetTrueTypeCollectionFace(string fontPath, int faceIndex) {
+            byte[] fontData = File.ReadAllBytes(fontPath);
 
-            return requestedSize;
+            if (fontData.Length < 16 ||
+                fontData[0] != (byte)'t' ||
+                fontData[1] != (byte)'t' ||
+                fontData[2] != (byte)'c' ||
+                fontData[3] != (byte)'f') {
+                throw new InvalidDataException($"'{fontPath}' is not a TrueType Collection.");
+            }
+
+            int faceCount = ReadBigEndianInt32(fontData, 8);
+            if (faceIndex < 0 || faceIndex >= faceCount) {
+                throw new InvalidDataException($"TrueType Collection face {faceIndex} does not exist in '{fontPath}'.");
+            }
+
+            int faceOffset = ReadBigEndianInt32(fontData, 12 + faceIndex * 4);
+            if (faceOffset < 0 || faceOffset > fontData.Length - 12) {
+                throw new InvalidDataException($"Invalid TrueType Collection face offset in '{fontPath}'.");
+            }
+
+            int tableCount = (fontData[faceOffset + 4] << 8) | fontData[faceOffset + 5];
+            int directoryLength = checked(12 + tableCount * 16);
+            if (directoryLength > fontData.Length - faceOffset) {
+                throw new InvalidDataException($"Invalid TrueType Collection table directory in '{fontPath}'.");
+            }
+
+            Buffer.BlockCopy(fontData, faceOffset, fontData, 0, directoryLength);
+            return fontData;
+        }
+
+        private static int ReadBigEndianInt32(byte[] data, int offset) {
+            return (data[offset] << 24) |
+                   (data[offset + 1] << 16) |
+                   (data[offset + 2] << 8) |
+                   data[offset + 3];
         }
 
         private static int GetUiFontPageTextureSize(int bakeSize) {
@@ -578,7 +608,7 @@ namespace Blish_HUD {
 
                     try {
                         if (_fontData == null) {
-                            _fontData = File.ReadAllBytes(_fontPath);
+                            _fontData = GetTrueTypeCollectionFace(_fontPath, MICROSOFT_YAHEI_UI_FACE_INDEX);
                         }
 
                         var ranges = new List<CharacterRange>();
@@ -728,10 +758,10 @@ namespace Blish_HUD {
 
         private BitmapFont GetChineseFont(FontFace font, FontSize size, FontStyle style) {
             style = GetUiFontWeightStyle(style);
-            string fontPath = GetBundledUiFontPath(style);
+            string fontPath = GetUiFontPath(style);
 
             if (fontPath == null) {
-                Logger.Error("Bundled UI font for style {fontStyle} is missing. Falling back to {fontFace}.", style, font);
+                Logger.Error("Microsoft YaHei UI for style {fontStyle} is missing. Falling back to {fontFace}.", style, font);
                 return null;
             }
 
@@ -782,7 +812,7 @@ namespace Blish_HUD {
 
         private static void RegisterChineseFallback(FontFace font, FontSize size, FontStyle style, BitmapFont fallbackFont) {
             style = GetUiFontWeightStyle(style);
-            string fontPath = GetBundledUiFontPath(style);
+            string fontPath = GetUiFontPath(style);
             if (fontPath == null || fallbackFont == null) return;
 
             string atlasKey = $"zh-cn-{Path.GetFileNameWithoutExtension(fontPath).ToLowerInvariant()}-{((int)size).ToString()}-{style.ToString().ToLowerInvariant()}";
