@@ -73,6 +73,8 @@
   <ItemGroup>
     <!-- Include custom build targets for modules that reference the NuGet package -->
     <None Include="build\**" Pack="True" PackagePath="build" />
+    <None Remove="Fonts\zh-cn-prewarm.txt" />
+    <EmbeddedResource Include="Fonts\zh-cn-prewarm.txt" />
   </ItemGroup>
 
   <ItemGroup>
@@ -244,6 +246,7 @@
     <PackageReference Include="Humanizer.Core.es" Version="2.6.2" PrivateAssets="all" />
     <PackageReference Include="Humanizer.Core.fr" Version="2.6.2" PrivateAssets="all" />
     <PackageReference Include="JsonSubTypes" Version="1.6.0" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="all" />
     <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.0.1641" PrivateAssets="all" />
     <PackageReference Include="MonoGame.Extended" Version="[3.8.0]" />

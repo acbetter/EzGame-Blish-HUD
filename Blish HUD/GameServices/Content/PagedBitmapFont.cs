@@ -40,6 +40,18 @@ namespace Blish_HUD.Content {
             this.Generation = generation;
         }
 
+        public BitmapFontRegion TryGetCharacterRegionRaw(int character) {
+            return _characterMap.TryGetValue(character, out var region) ? region : null;
+        }
+
+        public void RemoveRegions(IEnumerable<char> characters, int generation) {
+            foreach (char character in characters) {
+                _characterMap.Remove(character);
+            }
+
+            this.Generation = generation;
+        }
+
     }
 
 }
