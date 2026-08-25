@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework.Graphics;
 using MonoGame.Extended.BitmapFonts;
 using System;
 using System.Linq;
-using System.Text;
 using Blish_HUD.Controls;
 
 namespace Blish_HUD {
@@ -45,26 +44,10 @@ namespace Blish_HUD {
             sb.DrawString(sf, text, new Vector2(xPos, yPos), clr);
         }
 
-        /// <remarks> Source: https://stackoverflow.com/a/15987581/595437 </remarks>
         private static string WrapTextSegment(BitmapFont spriteFont, string text, float maxLineWidth) {
-            string[] words      = text.Split(' ');
-            var      sb         = new StringBuilder();
-            float    lineWidth  = 0f;
-            float    spaceWidth = spriteFont.MeasureString(" ").Width;
-
-            foreach (string word in words) {
-                Vector2 size = spriteFont.MeasureString(word);
-
-                if (lineWidth + size.X < maxLineWidth) {
-                    sb.Append(word + " ");
-                    lineWidth += size.X + spaceWidth;
-                } else {
-                    sb.Append("\n" + word + " ");
-                    lineWidth = size.X + spaceWidth;
-                }
-            }
-
-            return sb.ToString();
+            return CjkTextWrapper.Wrap(text,
+                                       maxLineWidth,
+                                       element => spriteFont.MeasureStringLogical(element).X);
         }
 
         public static string WrapText(BitmapFont spriteFont, string text, float maxLineWidth) {
