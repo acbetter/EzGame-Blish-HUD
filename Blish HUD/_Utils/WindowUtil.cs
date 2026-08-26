@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
@@ -35,8 +34,6 @@ namespace Blish_HUD {
 
         private const uint SWP_NOSIZE         = 0x0001;
         private const uint SWP_NOMOVE         = 0x0002;
-
-        private const int ZORDER_CHECK_INTERVAL_MS = 1000;
 
         private const int MINIMIZED_POS = -32000;
 
@@ -79,13 +76,8 @@ namespace Blish_HUD {
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
         private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, UIntPtr dwNewLong);
 
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-
-        private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-
         [DllImport("user32.dll")]
-        private static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT {
@@ -159,29 +151,6 @@ namespace Blish_HUD {
         }
 
         private static Rectangle pos;
-        private static readonly Stopwatch _zOrderCheckTimer = Stopwatch.StartNew();
-
-        private static bool IsWindowAbove(IntPtr windowHandle, IntPtr referenceHandle) {
-            bool isAbove = false;
-
-            EnumWindows((currentHandle, _) => {
-                if (currentHandle == windowHandle) {
-                    isAbove = true;
-                    return false;
-                }
-
-                return currentHandle != referenceHandle;
-            }, IntPtr.Zero);
-
-            return isAbove;
-        }
-
-        private static bool HasLostZOrder(IntPtr winHandle, IntPtr gw2WindowHandle) {
-            if (_zOrderCheckTimer.ElapsedMilliseconds < ZORDER_CHECK_INTERVAL_MS) return false;
-
-            _zOrderCheckTimer.Restart();
-            return !IsWindowAbove(winHandle, gw2WindowHandle);
-        }
 
         internal static (OverlayUpdateResponse Response, bool Minimized, int ErrorCode) UpdateOverlay(IntPtr winHandle, IntPtr gw2WindowHandle, bool wasOnTop) {
             var clientRect = new RECT();
@@ -228,9 +197,7 @@ namespace Blish_HUD {
                 Logger.Debug("GW2 is now the active window - reactivating the overlay.");
             }
 
-            bool lostZOrder = wasOnTop && HasLostZOrder(winHandle, gw2WindowHandle);
-
-            if (clientRect.Left + screenPoint.X != pos.X || clientRect.Top + screenPoint.Y != pos.Y || clientRect.Right - clientRect.Left != pos.Width || clientRect.Bottom - clientRect.Top != pos.Height || wasOnTop == false || lostZOrder) {
+            if (clientRect.Left + screenPoint.X != pos.X || clientRect.Top + screenPoint.Y != pos.Y || clientRect.Right - clientRect.Left != pos.Width || clientRect.Bottom - clientRect.Top != pos.Height || wasOnTop == false) {
                 pos = new Rectangle(
                     clientRect.Left + screenPoint.X,
                     clientRect.Top + screenPoint.Y,
@@ -243,11 +210,7 @@ namespace Blish_HUD {
                     pos.Height
                 );
 
-                if (!SetWindowPos(winHandle, HWND_TOPMOST, clientRect.Left + screenPoint.X, clientRect.Top + screenPoint.Y, clientRect.Right - clientRect.Left, clientRect.Bottom - clientRect.Top, 0)) {
-                    Logger.Warn($"{nameof(SetWindowPos)} failed with error code {Marshal.GetLastWin32Error()}.");
-                } else if (lostZOrder) {
-                    Logger.Info("Blish HUD overlay fell behind Guild Wars 2. Restored its z-order.");
-                }
+                SetWindowPos(winHandle, HWND_TOPMOST, clientRect.Left + screenPoint.X, clientRect.Top + screenPoint.Y, clientRect.Right - clientRect.Left, clientRect.Bottom - clientRect.Top, 0);
 
                 var marg = new Margins {
                     cxLeftWidth    = 0,
