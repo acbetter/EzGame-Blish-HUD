@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
@@ -34,6 +35,9 @@ namespace Blish_HUD {
 
         private const uint SWP_NOSIZE         = 0x0001;
         private const uint SWP_NOMOVE         = 0x0002;
+        private const uint SWP_NOACTIVATE     = 0x0010;
+
+        private const int ZORDER_CHECK_INTERVAL_MS = 1000;
 
         private const int MINIMIZED_POS = -32000;
 
@@ -76,7 +80,7 @@ namespace Blish_HUD {
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
         private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, UIntPtr dwNewLong);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         [StructLayout(LayoutKind.Sequential)]
@@ -151,6 +155,21 @@ namespace Blish_HUD {
         }
 
         private static Rectangle pos;
+        private static readonly Stopwatch _zOrderCheckTimer = Stopwatch.StartNew();
+
+        private static bool HasLostZOrder(IntPtr winHandle, IntPtr gw2WindowHandle) {
+            if (_zOrderCheckTimer.ElapsedMilliseconds < ZORDER_CHECK_INTERVAL_MS) return false;
+
+            _zOrderCheckTimer.Restart();
+
+            for (var currentHandle = GetWindow(gw2WindowHandle, GW.HWNDPREV);
+                 currentHandle != IntPtr.Zero;
+                 currentHandle = GetWindow(currentHandle, GW.HWNDPREV)) {
+                if (currentHandle == winHandle) return false;
+            }
+
+            return true;
+        }
 
         internal static (OverlayUpdateResponse Response, bool Minimized, int ErrorCode) UpdateOverlay(IntPtr winHandle, IntPtr gw2WindowHandle, bool wasOnTop) {
             var clientRect = new RECT();
@@ -187,7 +206,7 @@ namespace Blish_HUD {
 
                     var nextHandle = GetWindow(gw2WindowHandle, GW.HWNDPREV);
                     if (nextHandle != IntPtr.Zero && nextHandle != winHandle) {
-                        SetWindowPos(winHandle, nextHandle, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+                        SetWindowPos(winHandle, nextHandle, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                     }
                 }
                 return (OverlayUpdateResponse.WithoutFocus, screenPoint.X == MINIMIZED_POS, 0);
@@ -197,7 +216,12 @@ namespace Blish_HUD {
                 Logger.Debug("GW2 is now the active window - reactivating the overlay.");
             }
 
-            if (clientRect.Left + screenPoint.X != pos.X || clientRect.Top + screenPoint.Y != pos.Y || clientRect.Right - clientRect.Left != pos.Width || clientRect.Bottom - clientRect.Top != pos.Height || wasOnTop == false) {
+            bool geometryChanged = clientRect.Left + screenPoint.X != pos.X
+                                || clientRect.Top + screenPoint.Y != pos.Y
+                                || clientRect.Right - clientRect.Left != pos.Width
+                                || clientRect.Bottom - clientRect.Top != pos.Height;
+
+            if (geometryChanged || wasOnTop == false) {
                 pos = new Rectangle(
                     clientRect.Left + screenPoint.X,
                     clientRect.Top + screenPoint.Y,
@@ -210,7 +234,15 @@ namespace Blish_HUD {
                     pos.Height
                 );
 
-                SetWindowPos(winHandle, HWND_TOPMOST, clientRect.Left + screenPoint.X, clientRect.Top + screenPoint.Y, clientRect.Right - clientRect.Left, clientRect.Bottom - clientRect.Top, 0);
+                if (!SetWindowPos(winHandle,
+                                  HWND_TOPMOST,
+                                  clientRect.Left + screenPoint.X,
+                                  clientRect.Top + screenPoint.Y,
+                                  clientRect.Right - clientRect.Left,
+                                  clientRect.Bottom - clientRect.Top,
+                                  SWP_NOACTIVATE)) {
+                    Logger.Warn($"{nameof(SetWindowPos)} failed with error code {Marshal.GetLastWin32Error()}.");
+                }
 
                 var marg = new Margins {
                     cxLeftWidth    = 0,
@@ -220,6 +252,18 @@ namespace Blish_HUD {
                 };
 
                 DwmExtendFrameIntoClientArea(winHandle, ref marg);
+            } else if (HasLostZOrder(winHandle, gw2WindowHandle)) {
+                if (!SetWindowPos(winHandle,
+                                  HWND_TOPMOST,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)) {
+                    Logger.Warn($"{nameof(SetWindowPos)} failed with error code {Marshal.GetLastWin32Error()}.");
+                } else {
+                    Logger.Debug("Blish HUD overlay z-order restored without activating its window.");
+                }
             }
 
             return (OverlayUpdateResponse.WithFocus, screenPoint.X == MINIMIZED_POS, 0);
