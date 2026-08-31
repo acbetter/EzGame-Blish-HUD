@@ -8,9 +8,9 @@ namespace Blish_HUD.Licensing {
 
         private const string WebsiteUrl = "https://ezgame.cc";
 
-        // 2026-09-01 00:00:00 in China Standard Time.
+        // 2026-10-01 00:00:00 in China Standard Time.
         private static readonly DateTime ExpiresAtUtc =
-            new DateTime(2026, 8, 31, 16, 0, 0, DateTimeKind.Utc);
+            new DateTime(2026, 9, 30, 16, 0, 0, DateTimeKind.Utc);
 
         public static bool AllowStartup() {
             if (!NtpClient.TryGetUtcNow(out DateTime trustedUtcNow)) {
@@ -25,7 +25,7 @@ namespace Blish_HUD.Licensing {
             if (trustedUtcNow >= ExpiresAtUtc) {
                 ShowFailure(
                     "EzGame 版本已到期",
-                    "此版本的使用期限已于 2026 年 8 月 31 日结束。\r\n\r\n" +
+                    "此版本已于北京时间 2026 年 10 月 1 日 00:00 到期。\r\n\r\n" +
                     "请前往 https://ezgame.cc 获取新版本。");
                 return false;
             }
