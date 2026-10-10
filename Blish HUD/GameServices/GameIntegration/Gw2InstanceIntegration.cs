@@ -205,7 +205,11 @@ namespace Blish_HUD.GameIntegration {
             string windowClass = null;
 
             if (newProcess == null || _gw2Process.HasExited || _gw2Process.MainWindowHandle == IntPtr.Zero) {
-                BlishHud.Instance.Form.Invoke((MethodInvoker)(() => { BlishHud.Instance.Form.Visible = false; }));
+                BlishHud.Instance.Form.Invoke((MethodInvoker)(() => {
+                    WindowUtil.HideOverlay(BlishHud.Instance.FormHandle);
+                    this.Gw2HasFocus = false;
+                    GameService.Input.SuspendInput();
+                }));
 
                 _gw2Process = null;
                 this.Gw2IsRunning = false;
@@ -280,7 +284,6 @@ namespace Blish_HUD.GameIntegration {
                     this.Gw2Process.EnableRaisingEvents =  true;
                     this.Gw2Process.Exited              += OnGw2Exit;
 
-                    BlishHud.Instance.Form.Invoke((MethodInvoker)(() => { BlishHud.Instance.Form.Visible = true; }));
                 } catch (Win32Exception ex) /* [BLISHHUD-W] */ {
                     // Observed as "Access is denied"
                     Logger.Warn(ex, "A Win32Exception was encountered while trying to monitor the Gw2 process. It might be running with different permissions.");
@@ -356,50 +359,25 @@ namespace Blish_HUD.GameIntegration {
             return string.Empty;
         }
 
-        public override void Update(GameTime gameTime) {
-            // Determine if we are in game or not
-            this.IsInGame = GameService.Gw2Mumble.TimeSinceTick.TotalSeconds <= 0.5 && this.Gw2IsRunning;
+        internal WindowUtil.OverlayWindowState WindowState { get; private set; }
 
-            if (this.Gw2IsRunning) {
-                var updateResult = WindowUtil.UpdateOverlay(BlishHud.Instance.FormHandle, this.Gw2WindowHandle, this.Gw2HasFocus);
+        // Run before input and controls, so every service sees the same window state.
+        internal void UpdateOverlayWindow() {
+            this.WindowState = WindowUtil.ReadOverlayState(BlishHud.Instance.FormHandle, this.Gw2WindowHandle);
+            WindowUtil.UpdateOverlay(BlishHud.Instance.FormHandle, this.WindowState);
+            this.Gw2HasFocus = this.WindowState.HasGameFocus;
+            if (!this.Gw2HasFocus) GameService.Input.SuspendInput();
 
-                switch (updateResult.Response) {
-                    case WindowUtil.OverlayUpdateResponse.WithFocus:
-                        this.Gw2HasFocus = true;
-                        break;
-
-                    case WindowUtil.OverlayUpdateResponse.WithoutFocus:
-                        this.Gw2HasFocus = false;
-                        break;
-
-                    case WindowUtil.OverlayUpdateResponse.Errored:
-                        switch (updateResult.ErrorCode) {
-                            case 1400:
-                                this.Gw2Process?.Refresh();
-                                
-                                if (this.Gw2Process == null || this.Gw2Process.MainWindowHandle == IntPtr.Zero) {
-                                    // Guild Wars 2 most likely closed
-                                    goto case -1;
-                                }
-
-                                break;
-                            case -1:
-                            default:
-                                this.Gw2Process = null;
-                                if (GameService.Overlay.ShowInTaskbar.Value) {
-                                    WindowUtil.SetShowInTaskbar(BlishHud.Instance.FormHandle, false);
-                                }
-                                break;
-                        }
-                        break;
-                }
-
-                if (BlishHud.Instance.Form.Visible != !updateResult.Minimized) {
-                    BlishHud.Instance.Form.Visible = !updateResult.Minimized;
-                }
-            } else {
-                TryAttachToGw2();
+            if (this.WindowState.Kind == WindowUtil.OverlayWindowKind.Unavailable) {
+                if (this.WindowState.ErrorCode == 1400) this.Gw2Process?.Refresh();
+                if (this.Gw2Process == null || this.Gw2Process.MainWindowHandle == IntPtr.Zero || this.WindowState.ErrorCode != 1400)
+                    this.Gw2Process = null;
             }
+        }
+
+        public override void Update(GameTime gameTime) {
+            this.IsInGame = GameService.Gw2Mumble.TimeSinceTick.TotalSeconds <= 0.5 && this.Gw2IsRunning;
+            if (!this.Gw2IsRunning) TryAttachToGw2();
         }
 
         private void OnGw2Exit(object sender, EventArgs e) {

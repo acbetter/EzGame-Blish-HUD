@@ -205,7 +205,9 @@ namespace Blish_HUD.Controls {
         protected virtual void OnLeftMouseButtonReleased(MouseEventArgs e) {
             this.LeftMouseButtonReleased?.Invoke(this, e);
 
-            if (_enabled && _clickPrimed) {
+            bool clickPrimed = _clickPrimed;
+            _clickPrimed = false;
+            if (_enabled && clickPrimed) {
                 // Distinguish click from double-click
                 if (GameService.Overlay.CurrentGameTime.TotalGameTime.TotalMilliseconds - _lastClickTime < SystemInformation.DoubleClickTime) {
                     OnClick(new MouseEventArgs(e.EventType, true));
@@ -876,6 +878,13 @@ namespace Blish_HUD.Controls {
         }
 
         public virtual void DoUpdate(GameTime gameTime) { /* NOOP */ }
+
+        internal virtual void CancelInput() {
+            _clickPrimed = false;
+            this.MouseOver = false;
+        }
+
+        internal void ClearMouseOver() => this.MouseOver = false;
 
         public void Update(GameTime gameTime) {
             DoUpdate(gameTime);

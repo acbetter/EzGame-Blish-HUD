@@ -15,13 +15,7 @@ namespace Blish_HUD.Input {
         private static extern uint MapVirtualKey(uint vkCode, uint mapType);
 
         [DllImport("user32.dll")]
-        private static extern bool GetKeyboardState(byte[] keyboardState);
-
-        [DllImport("user32.dll")]
-        private static extern byte GetKeyState(int keyState);
-
-        private const byte VK_SHIFT = 0x10;
-        private const byte VK_MENU = 0x12;
+        private static extern short GetKeyState(int keyState);
 
         private static uint _lastVirtKeyCode;
         private static uint _lastScanCode;
@@ -31,23 +25,25 @@ namespace Blish_HUD.Input {
         /// <summary>
         /// Convert virtual-key code and keyboard state to unicode string
         /// </summary>
-        internal static string VkCodeToString(uint vkCode, bool isKeyDown) {
+        internal static byte[] ReadKeyboardState() {
+            var state = new byte[256];
+            for (int key = 1; key < state.Length; key++) {
+                if (WindowUtil.IsKeyDown(key)) state[key] = 0x80;
+            }
+            foreach (int key in new[] { 0x14, 0x90, 0x91 }) state[key] |= (byte)(GetKeyState(key) & 1);
+            return state;
+        }
+
+        internal static void Reset() {
+            _lastIsDead = false;
+            _lastVirtKeyCode = 0;
+        }
+
+        internal static string VkCodeToString(uint vkCode, bool isKeyDown, byte[] keyState) {
             // ToUnicode needs StringBuilder, it populates that during execution.
             var output = new StringBuilder(5);
 
-            byte[] keyState = new byte[256];
             uint scanCode = MapVirtualKey(vkCode, 0);
-
-            // apparently GetKeyboardState() has a problem returning the correct states
-            // if called just on its own - calling GetKeyState() before seems to fix
-            // this as stated in the following post:
-            // https://stackoverflow.com/a/53713024
-            GetKeyState(VK_SHIFT);
-            GetKeyState(VK_MENU);
-
-            if (!GetKeyboardState(keyState)) {
-                return "";
-            }
 
             int result = ToUnicode(vkCode, scanCode, keyState, output, 5, 0);
 

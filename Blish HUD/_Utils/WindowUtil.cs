@@ -1,289 +1,232 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 using Microsoft.Xna.Framework;
 
-// ReSharper disable FieldCanBeMadeReadOnly.Local
-// ReSharper disable InconsistentNaming
-
 namespace Blish_HUD {
 
     internal static class WindowUtil {
-
         private static readonly Logger Logger = Logger.GetLogger(typeof(WindowUtil));
 
-        private const uint WS_EX_TOPMOST       = 0x00000008;
-        private const uint WS_EX_TRANSPARENT   = 0x00000020;
-        private const uint WS_EX_TOOLWINDOW    = 0x00000080;
-        private const uint WS_EX_CONTROLPARENT = 0x00010000;
-        private const uint WS_EX_APPWINDOW     = 0x00040000;
-        private const uint WS_EX_LAYERED       = 0x00080000;
-
-        private const int GWL_STYLE   = -16;
+        private const uint WS_EX_TOPMOST = 0x00000008;
+        private const uint WS_EX_TRANSPARENT = 0x00000020;
+        private const uint WS_EX_TOOLWINDOW = 0x00000080;
+        private const uint WS_EX_APPWINDOW = 0x00040000;
+        private const uint WS_EX_LAYERED = 0x00080000;
+        private const uint WS_EX_NOACTIVATE = 0x08000000;
         private const int GWL_EXSTYLE = -20;
-
         private const int SW_HIDE = 0;
-        private const int SW_SHOW = 5;
-
-        private const uint CS_VREDRAW = 0x0001;
-        private const uint CS_HREDRAW = 0x0002;
-
-        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-
-        private const uint SWP_NOSIZE         = 0x0001;
-        private const uint SWP_NOMOVE         = 0x0002;
-        private const uint SWP_NOACTIVATE     = 0x0010;
-
+        private const int SW_SHOWNOACTIVATE = 4;
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOZORDER = 0x0004;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint GW_HWNDPREV = 3;
+        private const uint GA_ROOT = 2;
         private const int ZORDER_CHECK_INTERVAL_MS = 1000;
-
-        private const int MINIMIZED_POS = -32000;
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool ClientToScreen(IntPtr hWnd, ref System.Drawing.Point lpPoint);
-
-        [DllImport("Dwmapi.dll")]
-        private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref Margins pMarInset);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetActiveWindow();
-
-        [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern long GetClassName(IntPtr hwnd, StringBuilder lpClassName, long nMaxCount);
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        private static readonly Stopwatch ZOrderCheckTimer = Stopwatch.StartNew();
+        private static Rectangle _bounds;
+        private static IntPtr _gameWindow;
+        private static OverlayWindowKind _lastKind;
 
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool GetClientRect(IntPtr hWnd, ref RECT lpRect);
-
+        private static extern bool ClientToScreen(IntPtr hWnd, ref System.Drawing.Point point);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
         [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
+        private static extern bool IsWindow(IntPtr hWnd);
         [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-        private static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int nIndex);
-
-        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
-        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
-
+        private static extern bool IsIconic(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        internal static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int command);
+        [DllImport("user32.dll")]
+        internal static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr handle, out uint processId);
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
-
         [DllImport("user32.dll")]
-        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
-
+        private static extern IntPtr WindowFromPoint(System.Drawing.Point point);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
+        [DllImport("user32.dll")]
+        private static extern bool GetCursorPos(out System.Drawing.Point point);
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int key);
+        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+        private static extern IntPtr GetWindowLong32(IntPtr hWnd, int index);
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+        private static extern IntPtr GetWindowLong64(IntPtr hWnd, int index);
         [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
-        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, uint dwNewLong);
-
+        private static extern int SetWindowLong32(IntPtr hWnd, int index, uint value);
         [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
-        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, UIntPtr dwNewLong);
-
+        private static extern IntPtr SetWindowLong64(IntPtr hWnd, int index, UIntPtr value);
         [DllImport("user32.dll", SetLastError = true)]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int width, int height, uint flags);
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+        [DllImport("user32.dll")]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint colorKey, byte alpha, uint flags);
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmExtendFrameIntoClientArea(IntPtr hWnd, ref Margins margins);
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder name, int maxCount);
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct RECT {
-            public int Left;
-            public int Top;
-            public int Right;
-            public int Bottom;
-        }
+        private struct RECT { public int Left, Top, Right, Bottom; }
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Margins { public int Left, Right, Top, Bottom; }
 
-        private struct Margins {
-            public int cxLeftWidth;
-            public int cxRightWidth;
-            public int cyTopHeight;
-            public int cyBottomHeight;
-        }
+        internal enum OverlayWindowKind { Unavailable, Background, Minimized, Game, NativeTool }
 
-        private enum GW : uint {
-            HWNDFIRST    = 0,
-            HWNDLAST     = 1,
-            HWNDNEXT     = 2,
-            HWNDPREV     = 3,
-            OWNER        = 4,
-            CHILD        = 5,
-            ENABLEDPOPUP = 6
-        }
+        internal readonly struct OverlayWindowState {
+            public IntPtr GameWindow { get; }
+            public IntPtr ForegroundWindow { get; }
+            public Rectangle Bounds { get; }
+            public OverlayWindowKind Kind { get; }
+            public int ErrorCode { get; }
+            public bool Visible => Kind == OverlayWindowKind.Game || Kind == OverlayWindowKind.NativeTool;
+            public bool HasGameFocus => Kind == OverlayWindowKind.Game;
 
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr GetWindow(IntPtr hWnd, GW uCmd);
+            public OverlayWindowState(IntPtr gameWindow, IntPtr foregroundWindow, Rectangle bounds, OverlayWindowKind kind, int errorCode = 0) {
+                GameWindow = gameWindow;
+                ForegroundWindow = foregroundWindow;
+                Bounds = bounds;
+                Kind = kind;
+                ErrorCode = errorCode;
+            }
+        }
 
         internal static void SetForegroundWindowEx(IntPtr handle) => SetForegroundWindow(handle);
+        internal static bool IsKeyDown(int key) => (GetAsyncKeyState(key) & 0x8000) != 0;
+        internal static uint GetWindowProcessId(IntPtr handle) {
+            GetWindowThreadProcessId(handle, out var processId);
+            return processId;
+        }
 
-        private static IntPtr GetWindowLong(IntPtr hWnd, int nIndex) => IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLongPtr32(hWnd, nIndex);
+        internal static Point GetMousePosition() {
+            GetCursorPos(out var point);
+            return new Point(point.X, point.Y);
+        }
 
-        private static int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong) => IntPtr.Size != 8 ? SetWindowLong32(hWnd, nIndex, dwNewLong) : (int) SetWindowLongPtr64(hWnd, nIndex, new UIntPtr(dwNewLong));
+        // Layered, transparent HUD windows are skipped by native hit testing. A different
+        // native overlay at this point owns the input even when it doesn't activate itself.
+        internal static bool IsPointerOverGame(IntPtr gameWindow, Point point) {
+            var target = WindowFromPoint(new System.Drawing.Point(point.X, point.Y));
+            return target != IntPtr.Zero && GetAncestor(target, GA_ROOT) == gameWindow;
+        }
 
-        private static void SetWindowParam(IntPtr winHandle, bool showInTaskbar = false) {
-            uint windowParam = WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_CONTROLPARENT | WS_EX_LAYERED;
+        private static uint GetExtendedStyle(IntPtr handle) => unchecked((uint)(IntPtr.Size == 8
+            ? GetWindowLong64(handle, GWL_EXSTYLE).ToInt64()
+            : GetWindowLong32(handle, GWL_EXSTYLE).ToInt64()));
 
-            if (showInTaskbar) {
-                ShowWindow(winHandle, SW_HIDE);
-                windowParam |= WS_EX_APPWINDOW;
-            } else {
-                windowParam |= WS_EX_TOOLWINDOW;
+        internal static void SetShowInTaskbar(IntPtr handle, bool showInTaskbar) {
+            bool visible = IsWindowVisible(handle);
+            if (visible) ShowWindow(handle, SW_HIDE);
+            uint style = GetExtendedStyle(handle) & ~(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW);
+            style |= WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+            style |= showInTaskbar ? WS_EX_APPWINDOW : WS_EX_TOOLWINDOW;
+            if (IntPtr.Size == 8) SetWindowLong64(handle, GWL_EXSTYLE, new UIntPtr(style));
+            else SetWindowLong32(handle, GWL_EXSTYLE, style);
+            if (visible) ShowWindow(handle, SW_SHOWNOACTIVATE);
+        }
+
+        internal static void SetupOverlay(IntPtr handle) {
+            // MonoGame owns the normal/borderless window styles. CS_* are class styles
+            // and must not be written into GWL_STYLE.
+            SetShowInTaskbar(handle, false);
+            SetLayeredWindowAttributes(handle, 0, 255, 2);
+        }
+
+        internal static OverlayWindowState ReadOverlayState(IntPtr overlay, IntPtr game) {
+            var foreground = GetForegroundWindow();
+            if (game == IntPtr.Zero || !IsWindow(game))
+                return new OverlayWindowState(game, foreground, Rectangle.Empty, OverlayWindowKind.Unavailable, 1400);
+            if (IsIconic(game))
+                return new OverlayWindowState(game, foreground, Rectangle.Empty, OverlayWindowKind.Minimized);
+            if (!GetClientRect(game, out var client))
+                return new OverlayWindowState(game, foreground, Rectangle.Empty, OverlayWindowKind.Unavailable, Marshal.GetLastWin32Error());
+            var origin = System.Drawing.Point.Empty;
+            if (!ClientToScreen(game, ref origin))
+                return new OverlayWindowState(game, foreground, Rectangle.Empty, OverlayWindowKind.Unavailable, Marshal.GetLastWin32Error());
+            var bounds = new Rectangle(origin.X, origin.Y, client.Right - client.Left, client.Bottom - client.Top);
+            var kind = foreground == game ? OverlayWindowKind.Game : OverlayWindowKind.Background;
+            if (foreground != game && foreground != overlay && Form.FromHandle(foreground) is Form)
+                kind = OverlayWindowKind.NativeTool;
+            if (bounds.Width <= 0 || bounds.Height <= 0) kind = OverlayWindowKind.Minimized;
+            return new OverlayWindowState(game, foreground, bounds, kind);
+        }
+
+        internal static void HideOverlay(IntPtr overlay) {
+            if (IsWindowVisible(overlay)) ShowWindow(overlay, SW_HIDE);
+        }
+
+        internal static void UpdateOverlay(IntPtr overlay, OverlayWindowState state) {
+            if (!state.Visible) {
+                HideOverlay(overlay);
+                _lastKind = state.Kind;
+                return;
             }
 
-            SetWindowLong(winHandle, GWL_EXSTYLE, windowParam);
-
-            if (showInTaskbar) {
-                ShowWindow(winHandle, SW_SHOW);
-            }
-        }
-
-        internal static void SetShowInTaskbar(IntPtr winHandle, bool showInTaskbar) {
-            SetWindowParam(winHandle, showInTaskbar);
-        }
-
-        internal static void SetupOverlay(IntPtr winHandle) {
-            SetWindowLong(winHandle, GWL_STYLE, CS_HREDRAW | CS_VREDRAW);
-
-            // Let Gw2InstanceIntegration sync behavior with game runtime
-            SetShowInTaskbar(winHandle, false);
-
-            SetLayeredWindowAttributes(winHandle, 0, 255, 2);
-        }
-
-        public enum OverlayUpdateResponse {
-            WithFocus,
-            WithoutFocus,
-            Minimized,
-            Errored
-        }
-
-        private static Rectangle pos;
-        private static readonly Stopwatch _zOrderCheckTimer = Stopwatch.StartNew();
-
-        private static bool HasLostZOrder(IntPtr winHandle, IntPtr gw2WindowHandle) {
-            if (_zOrderCheckTimer.ElapsedMilliseconds < ZORDER_CHECK_INTERVAL_MS) return false;
-
-            _zOrderCheckTimer.Restart();
-
-            for (var currentHandle = GetWindow(gw2WindowHandle, GW.HWNDPREV);
-                 currentHandle != IntPtr.Zero;
-                 currentHandle = GetWindow(currentHandle, GW.HWNDPREV)) {
-                if (currentHandle == winHandle) return false;
+            bool wasVisible = IsWindowVisible(overlay);
+            bool newGame = _gameWindow != state.GameWindow;
+            if (newGame || _bounds != state.Bounds || !wasVisible) {
+                var bounds = state.Bounds;
+                GameService.Graphics.Resolution = bounds.Size;
+                if (!SetWindowPos(overlay, IntPtr.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height, SWP_NOZORDER | SWP_NOACTIVATE)) {
+                    Logger.Warn("Failed to position HUD: {error}", Marshal.GetLastWin32Error());
+                    HideOverlay(overlay);
+                    return;
+                }
+                var margins = new Margins { Right = bounds.Width, Bottom = bounds.Height };
+                DwmExtendFrameIntoClientArea(overlay, ref margins);
+                _bounds = bounds;
+                _gameWindow = state.GameWindow;
             }
 
+            if (newGame || !wasVisible || _lastKind != state.Kind || HasLostZOrder(overlay, state.GameWindow)) {
+                PlaceAboveGame(overlay, state.GameWindow);
+            }
+            if (!wasVisible) ShowWindow(overlay, SW_SHOWNOACTIVATE);
+            _lastKind = state.Kind;
+        }
+
+        private static bool HasLostZOrder(IntPtr overlay, IntPtr game) {
+            if (ZOrderCheckTimer.ElapsedMilliseconds < ZORDER_CHECK_INTERVAL_MS) return false;
+            ZOrderCheckTimer.Restart();
+            for (var window = GetWindow(game, GW_HWNDPREV); window != IntPtr.Zero; window = GetWindow(window, GW_HWNDPREV)) {
+                if (window == overlay) return false;
+            }
             return true;
         }
 
-        internal static (OverlayUpdateResponse Response, bool Minimized, int ErrorCode) UpdateOverlay(IntPtr winHandle, IntPtr gw2WindowHandle, bool wasOnTop) {
-            var clientRect = new RECT();
-            bool errGetClientRectResult = GetClientRect(gw2WindowHandle, ref clientRect);
+        internal static void PlaceAboveGame(IntPtr overlay, IntPtr game) {
+            const uint flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+            bool gameTopmost = (GetExtendedStyle(game) & WS_EX_TOPMOST) != 0;
+            if (!gameTopmost && (GetExtendedStyle(overlay) & WS_EX_TOPMOST) != 0)
+                SetWindowPos(overlay, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
 
-            // Probably errors caused by gw2 closing at the time of the call or the call is super early and has the wrong handle somehow
-            if (!errGetClientRectResult) {
-                int errorCode = Marshal.GetLastWin32Error();
-
-                Logger.Warn($"{nameof(GetClientRect)} failed with error code {errorCode}.");
-                return (OverlayUpdateResponse.Errored, false, errorCode);
-            }
-
-            var screenPoint = System.Drawing.Point.Empty;
-            bool errClientToScreen = ClientToScreen(gw2WindowHandle, ref screenPoint);
-
-            // Probably errors caused by gw2 closing at the time of the call
-            if (!errClientToScreen) {
-                int errorCode = Marshal.GetLastWin32Error();
-
-                Logger.Warn($"{nameof(ClientToScreen)} failed with error code {errorCode}.");
-                return (OverlayUpdateResponse.Errored, screenPoint.X == MINIMIZED_POS, errorCode);
-            }
-
-            GameService.Debug.StartTimeFunc("GetForegroundWindow");
-            var activeWindowHandle = GetForegroundWindow();
-            GameService.Debug.StopTimeFunc("GetForegroundWindow");
-
-            // If Guild Wars 2 is not the focused application, set Blish HUD to
-            // be above Guild Wars 2, but below the next application's window in z-order
-            if (activeWindowHandle != gw2WindowHandle && Form.ActiveForm == null) {
-                if (wasOnTop) {
-                    Logger.Debug("GW2 is no longer the active window.");
-
-                    var nextHandle = GetWindow(gw2WindowHandle, GW.HWNDPREV);
-                    if (nextHandle != IntPtr.Zero && nextHandle != winHandle) {
-                        SetWindowPos(winHandle, nextHandle, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-                    }
-                }
-                return (OverlayUpdateResponse.WithoutFocus, screenPoint.X == MINIMIZED_POS, 0);
-            }
-
-            if (!wasOnTop) {
-                Logger.Debug("GW2 is now the active window - reactivating the overlay.");
-            }
-
-            bool geometryChanged = clientRect.Left + screenPoint.X != pos.X
-                                || clientRect.Top + screenPoint.Y != pos.Y
-                                || clientRect.Right - clientRect.Left != pos.Width
-                                || clientRect.Bottom - clientRect.Top != pos.Height;
-
-            if (geometryChanged || wasOnTop == false) {
-                pos = new Rectangle(
-                    clientRect.Left + screenPoint.X,
-                    clientRect.Top + screenPoint.Y,
-                    clientRect.Right - clientRect.Left,
-                    clientRect.Bottom - clientRect.Top
-                );
-
-                GameService.Graphics.Resolution = new Point(
-                    pos.Width,
-                    pos.Height
-                );
-
-                if (!SetWindowPos(winHandle,
-                                  HWND_TOPMOST,
-                                  clientRect.Left + screenPoint.X,
-                                  clientRect.Top + screenPoint.Y,
-                                  clientRect.Right - clientRect.Left,
-                                  clientRect.Bottom - clientRect.Top,
-                                  SWP_NOACTIVATE)) {
-                    Logger.Warn($"{nameof(SetWindowPos)} failed with error code {Marshal.GetLastWin32Error()}.");
-                }
-
-                var marg = new Margins {
-                    cxLeftWidth    = 0,
-                    cyTopHeight    = 0,
-                    cxRightWidth   = clientRect.Right,
-                    cyBottomHeight = clientRect.Bottom
-                };
-
-                DwmExtendFrameIntoClientArea(winHandle, ref marg);
-            } else if (HasLostZOrder(winHandle, gw2WindowHandle)) {
-                if (!SetWindowPos(winHandle,
-                                  HWND_TOPMOST,
-                                  0,
-                                  0,
-                                  0,
-                                  0,
-                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)) {
-                    Logger.Warn($"{nameof(SetWindowPos)} failed with error code {Marshal.GetLastWin32Error()}.");
-                } else {
-                    Logger.Debug("Blish HUD overlay z-order restored without activating its window.");
-                }
-            }
-
-            return (OverlayUpdateResponse.WithFocus, screenPoint.X == MINIMIZED_POS, 0);
+            var previous = GetWindow(game, GW_HWNDPREV);
+            if (previous == overlay) return;
+            // Insert next to the game, behind any overlays already above it. Only a
+            // topmost game with no predecessor calls for HWND_TOPMOST.
+            var after = previous == IntPtr.Zero ? (gameTopmost ? HWND_TOPMOST : IntPtr.Zero) : previous;
+            if (!gameTopmost && previous != IntPtr.Zero && (GetExtendedStyle(previous) & WS_EX_TOPMOST) != 0)
+                after = IntPtr.Zero; // Top of the ordinary group, without joining the topmost group.
+            if (!SetWindowPos(overlay, after, 0, 0, 0, 0, flags))
+                Logger.Warn("Failed to restore HUD z-order: {error}", Marshal.GetLastWin32Error());
         }
 
-        internal static string GetClassNameOfWindow(IntPtr hwnd) {
-            string        className = "";
-            StringBuilder classText = null;
-            try {
-                int cls_max_length = 1000;
-                classText = new StringBuilder("", cls_max_length + 5);
-                GetClassName(hwnd, classText, cls_max_length + 2);
-
-                if (!string.IsNullOrEmpty(classText.ToString()))
-                    className = classText.ToString();
-            } catch (Exception ex) {
-                className = ex.Message;
-            }
-            return className;
+        internal static string GetClassNameOfWindow(IntPtr handle) {
+            var name = new StringBuilder(256);
+            GetClassName(handle, name, name.Capacity);
+            return name.ToString();
         }
-
     }
 }

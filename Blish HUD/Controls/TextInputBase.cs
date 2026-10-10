@@ -581,8 +581,16 @@ namespace Blish_HUD.Controls {
         }
 
         public override void UnsetFocus() {
+            _cursorDragging = false;
             this.Focused = false;
             GameService.Input.Keyboard.FocusedControl = null;
+        }
+
+        internal override void CancelInput() {
+            _cursorDragging = false;
+            _keyRepeatStates.Clear();
+            if (this.Focused) UnsetFocus();
+            base.CancelInput();
         }
 
         public override bool GetFocusState() {

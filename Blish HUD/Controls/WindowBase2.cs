@@ -524,6 +524,13 @@ namespace Blish_HUD.Controls {
             }
         }
 
+        internal override void CancelInput() {
+            this.Dragging = false;
+            this.Resizing = false;
+            ResetMouseRegionStates();
+            base.CancelInput();
+        }
+
         protected override void OnMouseLeft(MouseEventArgs e) {
             ResetMouseRegionStates();
             base.OnMouseLeft(e);

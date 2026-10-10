@@ -108,6 +108,11 @@ namespace Blish_HUD.Controls {
             this.Dragging = false;
         }
 
+        internal override void CancelInput() {
+            this.Dragging = false;
+            base.CancelInput();
+        }
+
         protected override void OnLeftMouseButtonPressed(MouseEventArgs e) {
             base.OnLeftMouseButtonPressed(e);
             if (_layoutNubBounds.Contains(this.RelativeMousePosition) && !this.Dragging) {

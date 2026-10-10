@@ -12,8 +12,6 @@ namespace Blish_HUD.GameIntegration {
 
         private static readonly Logger Logger = Logger.GetLogger<WinFormsIntegration>();
 
-        private Form _formWrapper;
-
         private NotifyIcon _trayIcon;
 
         private ToolStripItem _launchGw2Tsi;
@@ -30,16 +28,8 @@ namespace Blish_HUD.GameIntegration {
         internal WinFormsIntegration(GameIntegrationService service) : base(service) { /* NOOP */ }
 
         public override void Load() {
-            WrapMainForm();
             BuildTrayIcon();
             AutoLaunchGame();
-        }
-
-        private void WrapMainForm() {
-            _formWrapper = new Form();
-            BlishHud.Instance.Form.Hide();
-            BlishHud.Instance.Form.Show(_formWrapper);
-            BlishHud.Instance.Form.Visible = false;
         }
 
         internal void SetShowInTaskbar(bool showInTaskbar) {

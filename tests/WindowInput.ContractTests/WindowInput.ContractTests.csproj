@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>8</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.WindowsDX" Version="3.8.0.1641" />
+    <Reference Include="System.ServiceModel" />
+    <Compile Include="../../Blish HUD/_Utils/WindowUtil.cs" Link="WindowUtil.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/InputSession.cs" Link="InputSession.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/IHookManager.cs" Link="IHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/WinApiHookManager.cs" Link="WinApiHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/WinApiInputHookManager.cs" Link="WinApiInputHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/WinApi/*.cs" Link="WinApi/%(Filename)%(Extension)" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Mouse/IMouseHookManager.cs" Link="IMouseHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Mouse/WinApiMouseHookManager.cs" Link="WinApiMouseHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Mouse/MouseEventArgs.cs" Link="MouseEventArgs.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Mouse/MouseEventType.cs" Link="MouseEventType.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Keyboard/IKeyboardHookManager.cs" Link="IKeyboardHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Keyboard/WinApiKeyboardHookManager.cs" Link="WinApiKeyboardHookManager.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Keyboard/KeyboardEventArgs.cs" Link="KeyboardEventArgs.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Keyboard/KeyboardEventType.cs" Link="KeyboardEventType.cs" />
+    <Compile Include="../../Blish HUD/GameServices/Input/Keyboard/ModifierKeys.cs" Link="ModifierKeys.cs" />
+  </ItemGroup>
+</Project>

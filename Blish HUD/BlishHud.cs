@@ -59,6 +59,10 @@ namespace Blish_HUD {
         protected override void Initialize() {
             FormHandle = this.Window.Handle;
             Form       = Control.FromHandle(FormHandle).FindForm();
+            Form.Activated += (sender, args) => {
+                if (GameService.Overlay.ShowInTaskbar?.Value == true && WindowUtil.GetForegroundWindow() == FormHandle)
+                    GameService.GameIntegration.Gw2Instance.FocusGw2();
+            };
 
 
             Form.BackColor = System.Drawing.Color.Black;
@@ -113,11 +117,13 @@ namespace Blish_HUD {
         }
 
         protected override void Update(GameTime gameTime) {
+            GameService.GameIntegration.Gw2Instance.UpdateOverlayWindow();
             if (!GameService.GameIntegration.Gw2Instance.Gw2IsRunning) {
                 Form.Location = new System.Drawing.Point(-32000, -32000);
 
                 // If gw2 isn't open so only run the essentials
                 GameService.Debug.DoUpdate(gameTime);
+                GameService.Input.DoUpdate(gameTime);
                 GameService.GameIntegration.DoUpdate(gameTime);
                 GameService.Module.DoUpdate(gameTime);
 

@@ -141,6 +141,11 @@ namespace Blish_HUD.Controls {
             this.ScrollFocus = ClickFocus.None;
         }
 
+        internal override void CancelInput() {
+            this.ScrollFocus = ClickFocus.None;
+            base.CancelInput();
+        }
+
         protected override void OnMouseWheelScrolled(MouseEventArgs e) {
             HandleWheelScroll(this, e);
 

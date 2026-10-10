@@ -72,11 +72,11 @@ namespace Blish_HUD.Input {
             set {
                 if (_enabled != value) {
                     if (value) {
-                        KeyboardOnKeyStateChanged(null, null);
                         GameService.Input.Keyboard.KeyStateChanged += KeyboardOnKeyStateChanged;
+                        GameService.Input.Keyboard.RegisterKeyBinding(this);
                     } else {
                         GameService.Input.Keyboard.KeyStateChanged -= KeyboardOnKeyStateChanged;
-                        GameService.Input.Keyboard.UnstageKeyBinding(this);
+                        GameService.Input.Keyboard.UnregisterKeyBinding(this);
                     }
 
                     _enabled = value;
@@ -116,10 +116,13 @@ namespace Blish_HUD.Input {
         }
 
         private void KeyboardOnKeyStateChanged(object sender, KeyboardEventArgs e) {
-            if (this.PrimaryKey == Keys.None 
-             || (this.IgnoreWhenInTextField && GameService.Input.Keyboard.TextFieldIsActive())) return;
+            if (!GameService.Input.IsInputEnabled || this.PrimaryKey == Keys.None
+             || (this.IgnoreWhenInTextField && GameService.Input.Keyboard.TextFieldIsActive())) {
+                StopFiring();
+                return;
+            }
 
-            CheckTrigger(GameService.Input.Keyboard.ActiveModifiers, GameService.Input.Keyboard.KeysDown);
+            CheckTrigger(GameService.Input.Keyboard.ActiveModifiers, GameService.Input.Keyboard.KeysDown, e);
         }
 
         private void Reset() {
@@ -138,18 +141,12 @@ namespace Blish_HUD.Input {
             this.IsTriggering = false;
         }
 
-        private void CheckTrigger(ModifierKeys activeModifiers, IEnumerable<Keys> pressedKeys) {
+        private void CheckTrigger(ModifierKeys activeModifiers, IEnumerable<Keys> pressedKeys, KeyboardEventArgs input) {
             if (activeModifiers == this.ModifierKeys || _acceptedPrimaryModifierKeys.Contains(_primaryKey)) {
-                if (this.BlockSequenceFromGw2) {
-                    GameService.Input.Keyboard.StageKeyBinding(this);
-                }
-
                 if (pressedKeys.Contains(this.PrimaryKey)) {
-                    Fire();
+                    if (input?.EventType == KeyboardEventType.KeyDown && input.Key == this.PrimaryKey) Fire();
                     return;
                 }
-            } else {
-                GameService.Input.Keyboard.UnstageKeyBinding(this);
             }
 
             StopFiring();

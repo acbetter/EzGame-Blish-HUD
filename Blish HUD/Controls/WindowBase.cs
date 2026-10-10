@@ -318,6 +318,11 @@ namespace Blish_HUD.Controls {
             _lastInteraction = GameService.Overlay.CurrentGameTime.TotalGameTime.TotalMilliseconds;
         }
 
+        internal override void CancelInput() {
+            Dragging = false;
+            base.CancelInput();
+        }
+
         public bool CanClose => true;
 
         public bool CanCloseWithEscape => true;

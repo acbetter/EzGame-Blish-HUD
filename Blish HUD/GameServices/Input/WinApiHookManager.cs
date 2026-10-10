@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using System;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
 
@@ -11,13 +12,15 @@ namespace Blish_HUD.Input {
         private readonly IMouseHookManager    mouseHookManager;
         private readonly IKeyboardHookManager keyboardHookManager;
         private readonly AutoResetEvent       inputHookEvent = new AutoResetEvent(false);
-        private          bool                 stopRequested  = false;
+        private volatile bool                 stopRequested;
         private          Thread               thread;
         private          bool                 inputSuccessful = false;
 
-        public WinApiHookManager() {
-            mouseHookManager    = new WinApiMouseHookManager();
-            keyboardHookManager = new WinApiKeyboardHookManager();
+        public WinApiHookManager() : this(new WinApiMouseHookManager(), new WinApiKeyboardHookManager()) { }
+
+        internal WinApiHookManager(IMouseHookManager mouse, IKeyboardHookManager keyboard) {
+            mouseHookManager = mouse;
+            keyboardHookManager = keyboard;
         }
 
         public void Load() { /* NOOP */ }
@@ -25,15 +28,21 @@ namespace Blish_HUD.Input {
         public void Unload() => DisableHook();
 
         public bool EnableHook() {
-            if (thread != null) return false;
+            if (thread != null) return inputSuccessful;
 
             Logger.Debug("Enabling WinAPI input hooks");
 
-            thread = new Thread(Loop);
+            stopRequested = false;
+            inputSuccessful = false;
+            thread = new Thread(Loop) { IsBackground = true, Name = "Blish HUD input hooks" };
             thread.Start();
 
             // Wait for the hook to be completed and return the status
             inputHookEvent.WaitOne();
+            if (!inputSuccessful) {
+                thread.Join();
+                thread = null;
+            }
             return inputSuccessful;
         }
 
@@ -42,13 +51,11 @@ namespace Blish_HUD.Input {
 
             Logger.Debug("Disabling WinAPI input hooks");
 
-            mouseHookManager.DisableHook();
-            keyboardHookManager.DisableHook();
-
             stopRequested = true;
             thread.Join();
 
             stopRequested = false;
+            inputSuccessful = false;
             thread        = null;
         }
 
@@ -72,16 +79,24 @@ namespace Blish_HUD.Input {
                 }
             };
 
-            if (mouseHookManager.EnableHook() && keyboardHookManager.EnableHook()) inputSuccessful = true;
-            inputHookEvent.Set();
-
-            timer.Start();
-
-            Logger.Debug("Starting message loop");
-
-            // Start the message loop
-            Application.Run();
-            Logger.Debug("Message loop stopped");
+            bool signaled = false;
+            try {
+                inputSuccessful = mouseHookManager.EnableHook() && keyboardHookManager.EnableHook();
+                if (!inputSuccessful) return;
+                inputHookEvent.Set();
+                signaled = true;
+                timer.Start();
+                Application.Run();
+            } catch (Exception ex) {
+                inputSuccessful = false;
+                Logger.Error(ex, "Input hook thread failed.");
+            } finally {
+                // Includes partial installation failure; release on the owning thread.
+                timer.Stop();
+                keyboardHookManager.DisableHook();
+                mouseHookManager.DisableHook();
+                if (!signaled) inputHookEvent.Set();
+            }
         }
 
         #region IDisposable Support
@@ -91,8 +106,8 @@ namespace Blish_HUD.Input {
         protected virtual void Dispose(bool isDisposing) {
             if (!isDisposed) {
                 if (isDisposing) {
-                    inputHookEvent.Dispose();
                     Unload();
+                    inputHookEvent.Dispose();
                 }
 
                 isDisposed = true;

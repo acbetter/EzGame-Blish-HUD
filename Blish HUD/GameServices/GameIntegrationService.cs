@@ -117,9 +117,8 @@ namespace Blish_HUD {
         }
 
         protected override void Load() {
-            BlishHud.Instance.Form.Shown += delegate {
-                WindowUtil.SetupOverlay(BlishHud.Instance.FormHandle);
-            };
+            WindowUtil.SetupOverlay(BlishHud.Instance.FormHandle);
+            WindowUtil.HideOverlay(BlishHud.Instance.FormHandle);
 
             WireOldEvents();
         }

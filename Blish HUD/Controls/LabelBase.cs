@@ -71,7 +71,7 @@ namespace Blish_HUD.Controls {
             RefreshChineseFont(text);
 
             if (!_autoSizeWidth && _wrapText) {
-                text = DrawUtil.WrapText(_font, text, LabelRegion.X > 0 ? LabelRegion.X : _size.X);
+                text = DrawUtil.WrapText(_font, text, _size.X);
             }
 
             return _font.MeasureString(text ?? _text);
@@ -86,14 +86,17 @@ namespace Blish_HUD.Controls {
                 RecalculateLayout();
             }
 
+            // Auto-sized width is measured without soft wrapping; draw it the same way.
+            bool wrap = !_autoSizeWidth && _wrapText;
+
             if (_showShadow && !_strokeText) {
-                spriteBatch.DrawStringOnCtrl(this, text, _font, bounds.OffsetBy(1, 1), _shadowColor, _wrapText, _horizontalAlignment, _verticalAlignment);
+                spriteBatch.DrawStringOnCtrl(this, text, _font, bounds.OffsetBy(1, 1), _shadowColor, wrap, _horizontalAlignment, _verticalAlignment);
             }
             
             if (_cacheLabel && _labelRender != null) {
                 spriteBatch.DrawOnCtrl(this, _labelRender.CachedRender, bounds);
             } else {
-                spriteBatch.DrawStringOnCtrl(this, text, _font, bounds, _textColor, _wrapText, _strokeText, 1, _horizontalAlignment, _verticalAlignment);
+                spriteBatch.DrawStringOnCtrl(this, text, _font, bounds, _textColor, wrap, _strokeText, 1, _horizontalAlignment, _verticalAlignment);
             }
         }
 
