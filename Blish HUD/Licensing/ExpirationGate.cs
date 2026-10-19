@@ -8,9 +8,9 @@ namespace Blish_HUD.Licensing {
 
         private const string WebsiteUrl = "https://ezgame.cc/guides/ezgame-blish-hud-pathing-guide";
 
-        // 2026-11-01 00:00:00 in China Standard Time.
+        // Valid through 2026-11-30; expires 2026-12-01 00:00:00 in China Standard Time.
         private static readonly DateTime ExpiresAtUtc =
-            new DateTime(2026, 10, 31, 16, 0, 0, DateTimeKind.Utc);
+            new DateTime(2026, 11, 30, 16, 0, 0, DateTimeKind.Utc);
 
         public static bool AllowStartup() {
             if (!NtpClient.TryGetUtcNow(out DateTime trustedUtcNow)) {
@@ -25,7 +25,7 @@ namespace Blish_HUD.Licensing {
             if (trustedUtcNow >= ExpiresAtUtc) {
                 ShowFailure(
                     "EzGame 版本已到期",
-                    "此版本已于北京时间 2026 年 11 月 1 日 00:00 到期。\r\n\r\n" +
+                    "此版本已于北京时间 2026 年 12 月 1 日 00:00 到期（有效期至 11 月 30 日）。\r\n\r\n" +
                     $"点击“确定”将在浏览器中打开更新页面：\r\n{WebsiteUrl}");
                 return false;
             }
