@@ -7,4 +7,9 @@
 - 有效期保持北京时间 2026 年 11 月 30 日全天，12 月 1 日零时到期。
 - 包含 1.4.5 的启动网络与镜像缓存修复；网站 Web/Worker 无需再次部署。
 
-交付包：工作区根目录 `release/Blish-HUD-EzGame-1.4.6.zip`。上线后替换安装教程的当前下载入口，保留旧版本源码标签与内容寻址制品。
+交付包：工作区根目录 `release/Blish-HUD-EzGame-1.4.6.zip`，41,574,736 字节。
+
+- 源码提交：`80584bf82257fdb74e21b9e14ff1fcf6bfe76f36`，标签 `v1.4.6` 已推送。
+- [线上安装包](https://ezgame.cc/packages/blish/artifacts/8234a5f9509a8dc0df0718774f7e7779f25ccd9ce5f9433fad352cb5019c0976/Blish-HUD-EzGame-1.4.6.zip) 已上传，[安装教程](https://ezgame.cc/guides/ezgame-blish-hud-pathing-guide) 当前下载入口已替换为 1.4.6。保留旧版本源码标签与内容寻址制品。
+- Release/x64 构建通过；反射读取编译后中文资源及实际到期日期，确认显示“当前版本有效期至 2026 年 11 月 30 日”。包内中文资源与验证产物一致。
+- 公网下载内容与本地发布包逐字节一致，MD5 附属文件正确。
