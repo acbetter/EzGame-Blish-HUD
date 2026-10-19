@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using Blish_HUD.Content;
 using Blish_HUD.Controls;
+using Blish_HUD.Licensing;
 using Blish_HUD.Overlay.UI.Presenters;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -49,7 +50,7 @@ namespace Blish_HUD.Overlay.UI.Views {
 
             _ = new Label() {
                 Font              = GameService.Content.DefaultFont16,
-                Text              = Strings.GameServices.OverlayService.AboutLoveMessage,
+                Text              = string.Format(Strings.GameServices.OverlayService.AboutLoveMessage, ExpirationGate.ValidThroughDateText),
                 AutoSizeWidth     = true,
                 Height            = lovePanel.Height,
                 Left              = heart.Right,

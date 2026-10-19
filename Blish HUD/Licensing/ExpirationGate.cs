@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows.Forms;
 
 namespace Blish_HUD.Licensing {
@@ -11,6 +12,9 @@ namespace Blish_HUD.Licensing {
         // Valid through 2026-11-30; expires 2026-12-01 00:00:00 in China Standard Time.
         private static readonly DateTime ExpiresAtUtc =
             new DateTime(2026, 11, 30, 16, 0, 0, DateTimeKind.Utc);
+
+        internal static string ValidThroughDateText => ExpiresAtUtc.AddHours(8).AddTicks(-1)
+            .ToString("yyyy 年 M 月 d 日", CultureInfo.InvariantCulture);
 
         public static bool AllowStartup() {
             if (!NtpClient.TryGetUtcNow(out DateTime trustedUtcNow)) {
@@ -25,7 +29,7 @@ namespace Blish_HUD.Licensing {
             if (trustedUtcNow >= ExpiresAtUtc) {
                 ShowFailure(
                     "EzGame 版本已到期",
-                    "此版本已于北京时间 2026 年 12 月 1 日 00:00 到期（有效期至 11 月 30 日）。\r\n\r\n" +
+                    $"此版本已于北京时间 {ExpiresAtUtc.AddHours(8).ToString("yyyy 年 M 月 d 日 HH:mm", CultureInfo.InvariantCulture)} 到期（有效期至 {ValidThroughDateText}）。\r\n\r\n" +
                     $"点击“确定”将在浏览器中打开更新页面：\r\n{WebsiteUrl}");
                 return false;
             }
