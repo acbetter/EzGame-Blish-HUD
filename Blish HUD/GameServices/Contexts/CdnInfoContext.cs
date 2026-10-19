@@ -58,7 +58,6 @@ namespace Blish_HUD.Contexts {
         private const string GW2_ASSETCDN_URL    = "http://assetcdn.101.arenanetworks.com/latest/101";
         private const string GW2_CN_ASSETCDN_URL = "http://assetcdn.111.cgw2.com/latest/111";
 
-        private const string BHUD_BUILDINFO_LAMBDA = "https://l.blishhud.com/general/getbuildinfo";
 
         private CdnInfo _standardCdnInfo;
         private CdnInfo _chineseCdnInfo;
@@ -75,15 +74,32 @@ namespace Blish_HUD.Contexts {
             LoadFromLambda();
         }
 
-        private void LoadFromLambda() {
-            BHUD_BUILDINFO_LAMBDA.GetJsonAsync<CdnSet>().ContinueWith(cdnSet => {
-                if (!cdnSet.IsFaulted) {
-                    SetCdnInfo(ref _standardCdnInfo, cdnSet.Result.Standard);
-                    SetCdnInfo(ref _chineseCdnInfo,  cdnSet.Result.Chinese);
-                } else {
-                    LoadFromCdn();
+        private async void LoadFromLambda() {
+            string cachePath = System.IO.Path.Combine(DirectoryUtil.CachePath, "blish-build-info.json");
+            bool cached = false;
+            try {
+                if (System.IO.File.Exists(cachePath)) {
+                    var saved = Newtonsoft.Json.JsonConvert.DeserializeObject<CdnSet>(System.IO.File.ReadAllText(cachePath));
+                    if (saved.Standard.BuildId > 0 && saved.Chinese.BuildId > 0) {
+                        SetCdnInfo(ref _standardCdnInfo, saved.Standard);
+                        SetCdnInfo(ref _chineseCdnInfo, saved.Chinese);
+                        cached = true;
+                    }
                 }
-            });
+            } catch (Exception ex) {
+                Logger.Warn(ex, "Failed to read cached Blish build information.");
+            }
+            try {
+                var result = await EzGameDistribution.BuildInfoUrl.WithTimeout(5).GetJsonAsync<CdnSet>();
+                if (result.Standard.BuildId <= 0 || result.Chinese.BuildId <= 0)
+                    throw new InvalidOperationException("Blish build information is incomplete.");
+                SetCdnInfo(ref _standardCdnInfo, result.Standard);
+                SetCdnInfo(ref _chineseCdnInfo, result.Chinese);
+                System.IO.File.WriteAllText(cachePath, Newtonsoft.Json.JsonConvert.SerializeObject(result));
+            } catch (Exception ex) {
+                Logger.Warn(ex, "Failed to refresh Blish build information.");
+                if (!cached) LoadFromCdn();
+            }
         }
 
         private void LoadFromCdn() {

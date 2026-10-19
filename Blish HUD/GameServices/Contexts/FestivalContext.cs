@@ -158,15 +158,30 @@ namespace Blish_HUD.Contexts {
 
         private async Task<IEnumerable<Festival>> GetFestivalsFromLambda() {
             _fault = null;
+            string cachePath = System.IO.Path.Combine(DirectoryUtil.CachePath, "blish-festivals.json");
 
             try {
-                string[] staticFestivals = await "https://l.blishhud.com/general/getactivefestivals".GetJsonAsync<string[]>();
+                string[] staticFestivals = await EzGameDistribution.ActiveFestivalsUrl.WithTimeout(5).GetJsonAsync<string[]>();
+
+                System.IO.File.WriteAllText(cachePath, Newtonsoft.Json.JsonConvert.SerializeObject(staticFestivals));
 
                 return staticFestivals.Select(Festival.FromName);
             } catch (Exception ex) {
                 _fault = $"Failed to query Blish HUD static API: {ex.Message}";
 
                 Logger.Warn(ex, "Failed to query Blish HUD static API.");
+            }
+
+            try {
+                if (System.IO.File.Exists(cachePath)) {
+                    var cached = Newtonsoft.Json.JsonConvert.DeserializeObject<string[]>(System.IO.File.ReadAllText(cachePath));
+                    if (cached != null) {
+                        _fault = null;
+                        return cached.Select(Festival.FromName);
+                    }
+                }
+            } catch (Exception ex) {
+                Logger.Warn(ex, "Failed to read the cached Blish festival list.");
             }
 
             return Enumerable.Empty<Festival>();

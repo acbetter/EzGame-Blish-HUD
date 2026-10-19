@@ -5,6 +5,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Blish_HUD.Content;
 using Blish_HUD.Controls;
 using Blish_HUD.Graphics.UI;
@@ -14,7 +16,6 @@ using Blish_HUD.Modules.UI.Views;
 using Blish_HUD.Settings;
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
-using Flurl.Http;
 
 namespace Blish_HUD {
 
@@ -38,7 +39,8 @@ namespace Blish_HUD {
         public event EventHandler<ValueEventArgs<ModuleManager>> ModuleUnregistered;
 
         private List<ModuleDependency> _incompatibleModules      = new List<ModuleDependency>(0);
-        private HashSet<string>        _spoiledModuleIdentifiers = new HashSet<string>(0);
+        private readonly SpoiledModuleList _spoiledModules;
+        private readonly CancellationTokenSource _spoiledRefreshCancellation = new CancellationTokenSource();
 
         /// <summary>
         /// Access to repo management and state.
@@ -58,6 +60,7 @@ namespace Blish_HUD {
         public           IReadOnlyList<ModuleManager> Modules => _modules.ToList();
 
         internal ModuleService() {
+            _spoiledModules = new SpoiledModuleList(Path.Combine(DirectoryUtil.CachePath, "blish-spoiled.json"));
             SetServiceModules(this.ModulePkgRepoHandler = new ModulePkgRepoHandler(this));
         }
 
@@ -73,7 +76,7 @@ namespace Blish_HUD {
         }
 
         internal bool ModuleIsExplicitlyIncompatible(ModuleManager moduleManager) {
-            return _spoiledModuleIdentifiers.Contains($"{moduleManager.Manifest.Namespace}_{moduleManager.Manifest.Version}")
+            return _spoiledModules.Contains($"{moduleManager.Manifest.Namespace}_{moduleManager.Manifest.Version}")
                 || _incompatibleModules.Any(compatibilityListing => string.Equals(moduleManager.Manifest.Namespace, compatibilityListing.Namespace, StringComparison.OrdinalIgnoreCase)
                                                                  && compatibilityListing.VersionRange.IsSatisfied(moduleManager.Manifest.Version.BaseVersion()));
         }
@@ -171,15 +174,6 @@ namespace Blish_HUD {
             }
         }
 
-        private void LoadSpoiledList() {
-            try {
-                // We block for this on purpose
-                _spoiledModuleIdentifiers = EzGameDistribution.SpoiledModulesUrl.GetJsonAsync<string[]>().GetAwaiter().GetResult().ToHashSet();
-            } catch (Exception ex) {
-                Logger.Warn(ex, "Failed to load the spoiled modules list!");
-            }
-        }
-
         private void LoadCompatibility(IDataReader datReader) {
             if (datReader.FileExists(MODULE_COMPATIBILITYLIST)) {
                 try {
@@ -208,7 +202,6 @@ namespace Blish_HUD {
 
             HandleFirstVersionLaunch(datReader);
             LoadCompatibility(datReader);
-            LoadSpoiledList();
         }
         
         /// <summary>
@@ -277,6 +270,9 @@ namespace Blish_HUD {
         }
 
         protected override void Load() {
+            _spoiledModules.LoadCached();
+            var cancellationToken = _spoiledRefreshCancellation.Token;
+            _ = Task.Run(() => _spoiledModules.RefreshAsync(cancellationToken));
             RegisterModulesInSettings();
 
             if (ApplicationSettings.Instance.DebugEnabled) {
@@ -403,6 +399,8 @@ namespace Blish_HUD {
         }
 
         protected override void Unload() {
+            _spoiledRefreshCancellation.Cancel();
+            _spoiledRefreshCancellation.Dispose();
             GameService.GameIntegration.Gw2Instance.Gw2Started -= Gw2Instance_Gw2Started;
 
             foreach (var module in _modules) {

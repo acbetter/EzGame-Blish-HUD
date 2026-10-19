@@ -74,19 +74,30 @@ namespace Blish_HUD.Modules.Pkgs {
         }
 
         protected async Task<(PkgManifest[] PkgManifests, Exception Exception)> LoadPkgManifests(string pkgUrl) {
+            string cachePath = Path.Combine(DirectoryUtil.CachePath, "blish-" + new Uri(pkgUrl).Segments.Last());
             try {
-                using var compressedRelease = await pkgUrl.GetStreamAsync();
-
-                using var gzipStream = new GZipStream(compressedRelease, CompressionMode.Decompress);
-                using var streamReader = new StreamReader(gzipStream);
-                using var jsonTextReader = new JsonTextReader(streamReader);
-                var serializer = new JsonSerializer();
-
-                return (serializer.Deserialize<PkgManifest[]>(jsonTextReader) ?? Array.Empty<PkgManifest>(), null);
+                byte[] compressed = await pkgUrl.WithTimeout(5).GetBytesAsync();
+                var manifests = ParsePkgManifests(compressed);
+                File.WriteAllBytes(cachePath, compressed);
+                return (manifests, null);
             } catch (Exception ex) {
                 Logger.Warn(ex, $"Failed to load modules from '{pkgUrl}'.");
+                try {
+                    if (File.Exists(cachePath)) return (ParsePkgManifests(File.ReadAllBytes(cachePath)), null);
+                } catch (Exception cacheError) {
+                    Logger.Warn(cacheError, "Failed to read the cached Blish package repository.");
+                }
                 return (Array.Empty<PkgManifest>(), ex);
             }
+        }
+
+        private static PkgManifest[] ParsePkgManifests(byte[] compressed) {
+            using var compressedRelease = new MemoryStream(compressed);
+            using var gzipStream = new GZipStream(compressedRelease, CompressionMode.Decompress);
+            using var streamReader = new StreamReader(gzipStream);
+            using var jsonTextReader = new JsonTextReader(streamReader);
+            return new JsonSerializer().Deserialize<PkgManifest[]>(jsonTextReader)
+                ?? throw new InvalidDataException("The Blish package repository must be an array.");
         }
 
         public IEnumerable<PkgManifest> GetPkgManifests() {

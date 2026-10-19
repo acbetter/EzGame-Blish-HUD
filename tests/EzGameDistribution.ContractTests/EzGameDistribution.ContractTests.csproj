@@ -8,5 +8,8 @@
 
   <ItemGroup>
     <Compile Include="..\..\Blish HUD\GameServices\EzGameDistribution.cs" Link="EzGameDistribution.cs" />
+    <Compile Include="..\..\Blish HUD\GameServices\Modules\SpoiledModuleList.cs" Link="SpoiledModuleList.cs" />
+    <PackageReference Include="Flurl.Http" Version="2.4.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 </Project>

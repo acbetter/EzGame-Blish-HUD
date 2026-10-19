@@ -4,8 +4,10 @@ namespace Blish_HUD {
     internal static class EzGameDistribution {
 
         public const string PackageRepositoryUrl = "https://ezgame.cc/packages/blish/";
-        public const string SpoiledModulesUrl    = "https://pkgs.blishhud.com/spoiled.json";
+        public const string SpoiledModulesUrl    = PackageRepositoryUrl + "spoiled.json";
         public const string CoreVersionsUrl      = PackageRepositoryUrl + "versions.json?cv={0}";
+        public const string ActiveFestivalsUrl   = PackageRepositoryUrl + "general/getactivefestivals";
+        public const string BuildInfoUrl         = PackageRepositoryUrl + "general/getbuildinfo";
 
         private const string ARTIFACT_PATH_PREFIX = "/packages/blish/artifacts/";
 
