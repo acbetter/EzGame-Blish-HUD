@@ -17,14 +17,7 @@ namespace Blish_HUD.Licensing {
             .ToString("yyyy 年 M 月 d 日", CultureInfo.InvariantCulture);
 
         public static bool AllowStartup() {
-            if (!NtpClient.TryGetUtcNow(out DateTime trustedUtcNow)) {
-                ShowFailure(
-                    "EzGame 时间校验失败",
-                    "无法连接时间校验服务器。\r\n\r\n" +
-                    "请检查网络连接，并确认防火墙没有拦截 UDP 123 端口。\r\n\r\n" +
-                    $"点击“确定”将在浏览器中打开更新说明：\r\n{WebsiteUrl}\r\n\r\n程序即将退出。");
-                return false;
-            }
+            DateTime trustedUtcNow = EzGameTimeClient.GetUtcNow();
 
             if (trustedUtcNow >= ExpiresAtUtc) {
                 ShowFailure(
