@@ -1,6 +1,10 @@
 ﻿# Blish HUD
 [![Discord](https://img.shields.io/discord/531175899588984842.svg?logo=discord&logoColor=%237289DA)](https://discord.gg/FYKN3qh)
 
+## EzGame 版本维护
+
+本仓库为 EzGame 中文版本。下载与安装见 [EzGame 教程](https://ezgame.cc/guides/ezgame-blish-hud-pathing-guide)，维护与发布从 [项目交接](docs/handoff.md) 开始；以下保留上游项目说明与开发资料。
+
 **Visit our site:** https://blishhud.com
 
 ## Check our Setup Guide
